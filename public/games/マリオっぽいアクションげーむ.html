@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>スーパーアクションゲーム（戦績機能付き）</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body { margin: 0; padding: 0; background-color: #111; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; }
+        #game-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        
+        .controls { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; pointer-events: none; box-sizing: border-box; z-index: 100; }
+        .btn { width: 80px; height: 80px; background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 30px; color: white; user-select: none; pointer-events: auto; touch-action: manipulation; backdrop-filter: blur(4px); }
+        .btn:active, .btn.active { background: rgba(255, 255, 255, 0.5); transform: scale(0.95); }
+        .d-pad { display: flex; gap: 15px; }
+        
+        #info-layer { position: fixed; top: 10px; left: 20px; color: white; font-size: 20px; font-weight: bold; text-shadow: 2px 2px 0 #000; z-index: 100; pointer-events: none; }
+
+        /* UIレイヤー：戦績が見やすいようにスタイル調整 */
+        #ui-layer { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.95); padding: 30px; border-radius: 15px; text-align: center; color: white; z-index: 200; min-width: 320px; max-width: 90%; box-shadow: 0 0 30px rgba(0,0,0,0.8); border: 2px solid #fff; }
+        #ui-message { white-space: pre-wrap; line-height: 1.6; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div id="info-layer">
+        WORLD <span id="world-display">1-1</span> <br>
+        SCORE <span id="score-display">000000</span>
+    </div>
+
+    <div id="game-container"></div>
+
+    <div class="controls">
+        <div class="d-pad">
+            <div id="btn-left" class="btn">←</div>
+            <div id="btn-right" class="btn">→</div>
+        </div>
+        <div id="btn-jump" class="btn">JUMP</div>
+    </div>
+
+    <div id="ui-layer">
+        <h2 id="ui-title" class="text-3xl font-bold mb-4">GAME OVER</h2>
+        <!-- 戦績表示エリア -->
+        <div id="ui-message" class="text-sm mb-6 bg-gray-800 p-4 rounded text-left overflow-auto max-h-60">Score: 0</div>
+        <button type="button" id="action-btn" class="px-8 py-3 bg-red-600 text-white font-bold rounded hover:bg-red-500 transition cursor-pointer pointer-events-auto text-xl w-full">RETRY</button>
+    </div>
+
+    <script>
+        const WORLD_WIDTH = 6000;
+        const WORLD_HEIGHT = 600;
+
+        const config = {
+            type: Phaser.AUTO,
+            scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 800, height: 600 },
+            parent: 'game-container',
+            physics: { default: 'arcade', arcade: { gravity: { y: 1000 }, debug: false } },
+            scene: { preload: preload, create: create, update: update },
+            backgroundColor: '#000'
+        };
+
+        let game = new Phaser.Game(config);
+
+        let player;
+        let cursors;
+        let enemiesGroup;
+        let platforms;
+        
+        // 進行状況・戦績変数
+        let currentWorld = 1;
+        let currentStage = 1;
+        let totalScore = 0;
+        let isGameActive = true;
+        let retryCounts = {}; // 死亡回数記録用 { "1-1": 0, "1-2": 3 ... }
+        
+        let isLeftDown = false;
+        let isRightDown = false;
+        let isJumpDown = false;
+
+        function preload() {
+            const makeRect = (key, color, w, h) => {
+                const gfx = this.make.graphics({x:0, y:0, add:false});
+                gfx.fillStyle(color, 1); gfx.fillRect(0,0,w,h); gfx.generateTexture(key, w, h);
+            };
+            
+            makeRect('ground_1', 0x228B22, 40, 40); 
+            makeRect('ground_2', 0x87CEEB, 40, 40); 
+            makeRect('ground_3', 0x8B0000, 40, 40); 
+            makeRect('block', 0x8B4513, 40, 40); 
+            makeRect('player', 0xFF0000, 32, 48);
+            makeRect('walker', 0x800080, 32, 32);
+            makeRect('flyer', 0x1E90FF, 32, 32);
+            makeRect('chaser', 0xFF4500, 32, 32);
+            makeRect('spike', 0xAAAAAA, 32, 32);
+            makeRect('goal', 0xFFD700, 40, 300);
+        }
+
+        function create() {
+            isGameActive = true;
+            document.getElementById('ui-layer').style.display = 'none';
+            updateUI();
+
+            this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT + 200);
+
+            if (currentWorld === 1) this.cameras.main.setBackgroundColor('#87CEEB');
+            else if (currentWorld === 2) this.cameras.main.setBackgroundColor('#E0F7FA');
+            else this.cameras.main.setBackgroundColor('#2c0000');
+
+            platforms = this.physics.add.staticGroup();
+            enemiesGroup = this.physics.add.group({ collideWorldBounds: true });
+            
+            generateLevel(this, currentWorld, currentStage);
+
+            player = this.physics.add.sprite(100, 300, 'player');
+            player.setCollideWorldBounds(true);
+            player.setBounce(0.0);
+
+            const goal = this.physics.add.staticSprite(WORLD_WIDTH - 150, WORLD_HEIGHT - 170, 'goal');
+
+            this.physics.add.collider(player, platforms);
+            this.physics.add.collider(enemiesGroup, platforms);
+
+            this.physics.add.overlap(player, goal, () => {
+                nextLevel(this);
+            });
+
+            this.physics.add.collider(player, enemiesGroup, (p, e) => {
+                if (!isGameActive) return;
+                if (e.type === 'spike') { gameOver(this); return; }
+
+                const isAbove = (p.y + p.height/2) < e.y;
+                const isFallingOrStill = p.body.velocity.y >= 0;
+
+                if (isAbove && isFallingOrStill) {
+                    e.destroy();
+                    p.setVelocityX(0); 
+                    p.setVelocityY(-450); 
+                    totalScore += (e.type === 'chaser' ? 300 : 100);
+                    updateUI();
+                } else {
+                    gameOver(this);
+                }
+            });
+
+            this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+            this.cameras.main.startFollow(player, true, 0.1, 0.1);
+            cursors = this.input.keyboard.createCursorKeys();
+        }
+
+        function generateLevel(scene, world, stage) {
+            let groundKey = world === 1 ? 'ground_1' : (world === 2 ? 'ground_2' : 'ground_3');
+            
+            let gapChance = 10 + (world * 5) + (stage * 3);
+            let enemyRate = 10 + (world * 5) + (stage * 3);
+
+            let x = 0;
+            let currentHeight = WORLD_HEIGHT - 40;
+            
+            // 安全地帯
+            for (let i = 0; i < 15; i++) {
+                platforms.create(x, currentHeight, groundKey).refreshBody();
+                x += 40;
+            }
+
+            while (x < WORLD_WIDTH - 600) {
+                let nextX = x;
+                let nextHeight = currentHeight;
+
+                if (Math.random() * 100 < gapChance) {
+                    let gapWidth = Phaser.Math.Between(2, 4) * 40; 
+                    nextX += gapWidth;
+                }
+
+                // 届く範囲で高さ変更
+                let deltaBlock = Phaser.Math.Between(-4, 4);
+                let heightChange = deltaBlock * 40;
+                if ((nextX - x) > 120 && heightChange < -40) {
+                     heightChange = -40;
+                }
+                nextHeight += heightChange;
+                nextHeight = Phaser.Math.Clamp(nextHeight, 200, WORLD_HEIGHT - 40);
+
+                currentHeight = nextHeight;
+                x = nextX;
+
+                let len = Phaser.Math.Between(3, 8);
+                for (let i = 0; i < len; i++) {
+                    platforms.create(x, currentHeight, groundKey).refreshBody();
+
+                    if (i > 0 && i < len - 1 && Math.random() * 100 < enemyRate) {
+                        let type = 'walker';
+                        if (world === 2 && Math.random() < 0.5) type = 'flyer';
+                        if (world === 3 && Math.random() < 0.4) type = 'chaser';
+                        if (Math.random() < 0.1) type = 'spike';
+
+                        let ey = currentHeight - 40;
+                        if (type === 'flyer') ey -= 100;
+                        
+                        const e = enemiesGroup.create(x, ey, type);
+                        e.type = type;
+                        if (type === 'flyer' || type === 'spike') {
+                            e.body.allowGravity = false;
+                            e.body.immovable = true;
+                            if(type === 'flyer') { e.startY = ey; e.timeOffset = Math.random() * 2000; }
+                        } else {
+                            e.setVelocityX(-100);
+                            e.setBounceX(1);
+                        }
+                    }
+                    x += 40;
+                }
+            }
+
+            for (let i = 0; i < 20; i++) {
+                platforms.create(x, WORLD_HEIGHT - 40, groundKey).refreshBody();
+                x += 40;
+            }
+        }
+
+        function update(time, delta) {
+            if (!isGameActive) return;
+            if (player.y > WORLD_HEIGHT + 100) { gameOver(this, true); return; }
+
+            const left = cursors.left.isDown || isLeftDown;
+            const right = cursors.right.isDown || isRightDown;
+            const jump = cursors.up.isDown || isJumpDown;
+
+            if (left) player.setVelocityX(-260);
+            else if (right) player.setVelocityX(260);
+            else player.setVelocityX(0);
+
+            if (jump && player.body.touching.down) player.setVelocityY(-650);
+
+            enemiesGroup.children.iterate(e => {
+                if (!e || !e.active) return;
+                if (e.type === 'flyer') e.y = e.startY + Math.sin((time + e.timeOffset) * 0.003) * 80;
+                else if (e.type === 'chaser') {
+                    const dist = Phaser.Math.Distance.Between(player.x, player.y, e.x, e.y);
+                    if (dist < 500 && dist > 10) {
+                        e.setVelocityX(player.x < e.x ? -180 : 180);
+                        if ((e.body.blocked.left || e.body.blocked.right) && e.body.touching.down) e.setVelocityY(-450);
+                    } else e.setVelocityX(0);
+                }
+            });
+        }
+
+        function nextLevel(scene) {
+            if (!isGameActive) return;
+            isGameActive = false;
+            
+            scene.physics.pause();
+            totalScore += 1000 + (currentWorld * 500);
+            updateUI();
+
+            currentStage++;
+            if (currentStage > 4) {
+                currentStage = 1;
+                currentWorld++;
+            }
+
+            if (currentWorld > 3) {
+                // 全クリ
+                showUI(scene, 'ALL CLEARED!', generateDeathReport(), 'gold', false);
+            } else {
+                showUI(scene, `STAGE ${currentWorld}-${currentStage}`, 'Next Stage', 'white', true);
+            }
+        }
+
+        function gameOver(scene, isFalling = false) {
+            if (!isGameActive) return;
+            isGameActive = false;
+
+            // ★戦績：死亡カウント加算★
+            const key = `${currentWorld}-${currentStage}`;
+            retryCounts[key] = (retryCounts[key] || 0) + 1;
+
+            player.setTint(0xff0000);
+            player.setVelocityX(0);
+            
+            if (!isFalling) {
+                player.body.checkCollision.none = true;
+                player.setCollideWorldBounds(false);
+                player.setVelocityY(-500);
+            }
+
+            enemiesGroup.children.iterate(e => { if(e) e.body.velocity.x = 0; });
+            scene.cameras.main.stopFollow();
+
+            setTimeout(() => {
+                if(scene.physics) scene.physics.pause();
+                showUI(scene, 'GAME OVER', 'Don\'t give up!', 'red', true);
+            }, 1000);
+        }
+
+        // 戦績レポート作成関数
+        function generateDeathReport() {
+            let report = "【 苦戦レポート (Retry Count) 】\n\n";
+            let totalDeaths = 0;
+            
+            for (let w = 1; w <= 3; w++) {
+                let line = `World ${w}: `;
+                for (let s = 1; s <= 4; s++) {
+                    const key = `${w}-${s}`;
+                    const count = retryCounts[key] || 0;
+                    totalDeaths += count;
+                    // 色分け: 0回なら〇、1-5回なら数字、6回以上は！マーク付き
+                    let mark = count === 0 ? "★" : (count > 5 ? `⚠️${count}` : `${count}`);
+                    line += `[${s}: ${mark}]  `;
+                }
+                report += line + "\n";
+            }
+            report += `\nTotal Retries: ${totalDeaths}`;
+            return report;
+        }
+
+        function updateUI() {
+            document.getElementById('world-display').innerText = `${currentWorld}-${currentStage}`;
+            document.getElementById('score-display').innerText = totalScore.toString().padStart(6, '0');
+        }
+
+        function showUI(scene, title, msg, color, isRetry) {
+            const ui = document.getElementById('ui-layer');
+            const t = document.getElementById('ui-title');
+            const m = document.getElementById('ui-message');
+            const btn = document.getElementById('action-btn');
+
+            t.innerText = title;
+            t.className = `text-4xl font-bold mb-4 ${color === 'red' ? 'text-red-500' : (color === 'gold' ? 'text-yellow-400' : 'text-white')}`;
+            m.innerText = msg;
+            
+            // ★ボタン挙動の修正★
+            if (isRetry) {
+                btn.innerText = (title.includes('STAGE')) ? 'START' : 'RETRY';
+                btn.onclick = () => {
+                    ui.style.display = 'none';
+                    scene.scene.restart();
+                };
+            } else {
+                // クリア後：最初から遊ぶ
+                btn.innerText = 'PLAY AGAIN';
+                btn.onclick = () => {
+                    ui.style.display = 'none';
+                    // 変数を初期化
+                    currentWorld = 1;
+                    currentStage = 1;
+                    totalScore = 0;
+                    retryCounts = {}; // 戦績リセット
+                    scene.scene.restart();
+                };
+            }
+            ui.style.display = 'block';
+        }
+
+        const setupTouch = (id, setter) => {
+            const el = document.getElementById(id);
+            const on = (e) => { e.preventDefault(); setter(true); el.classList.add('active'); };
+            const off = (e) => { e.preventDefault(); setter(false); el.classList.remove('active'); };
+            el.addEventListener('touchstart', on, {passive:false}); el.addEventListener('mousedown', on);
+            el.addEventListener('touchend', off, {passive:false}); el.addEventListener('mouseup', off); el.addEventListener('mouseleave', off);
+        };
+        setupTouch('btn-left', v => isLeftDown = v);
+        setupTouch('btn-right', v => isRightDown = v);
+        setupTouch('btn-jump', v => isJumpDown = v);
+
+    </script>
+</body>
+</html>

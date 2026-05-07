@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phaser 3 Expressway Traffic Simulation - Ultra Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #settings-toggle {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            padding: 8px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            z-index: 10001;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
+        #ui-container {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 12px;
+            pointer-events: auto;
+            z-index: 10000;
+            min-width: 240px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            border: 1px solid #555;
+            backdrop-filter: blur(10px);
+            display: none; 
+        }
+        .control-group {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .stats {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            color: #00ffcc;
+            background: rgba(0,0,0,0.4);
+            padding: 10px;
+            border-radius: 6px;
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        .hint {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+        }
+        .meter-container {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        #jam-meter {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to right, #00ffcc, #ffcc00, #ff0000);
+            transition: width 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="settings-toggle">⚙️ 設定を表示</button>
+
+    <div id="ui-container">
+        <h3 style="margin-top: 0; color: #fff; border-bottom: 2px solid #00ffcc; padding-bottom: 5px;">Expressway Sim Ultra</h3>
+        <div class="control-group">
+            <label id="label-count">初期車両数: 120</label>
+            <input type="range" id="input-count" min="10" max="300" value="120">
+        </div>
+        <div class="control-group">
+            <label id="label-spawn">流入頻度 (ランプ): 中</label>
+            <input type="range" id="input-spawn" min="0" max="100" value="30">
+        </div>
+        <div class="control-group">
+            <label id="label-speed">巡航目標速度</label>
+            <input type="range" id="input-speed" min="50" max="450" value="200">
+        </div>
+        <div class="stats" id="stats-display">
+            Vehicles: 0 | Time: 12:00
+            <div class="meter-container"><div id="jam-meter"></div></div>
+        </div>
+        <button id="reset-cam" style="margin-top:12px; width: 100%; cursor: pointer; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px;">視点をリセット</button>
+    </div>
+
+    <div class="hint">車両をクリックして追跡 | 出入り口や橋が定期的に現れます</div>
+    <div id="game-container"></div>
+
+    <script>
+        const LANE_WIDTH = 64;
+        const NUM_LANES = 6;
+        const ROAD_WIDTH = LANE_WIDTH * NUM_LANES;
+        const WORLD_HEIGHT = 15000;
+
+        const DEPTH = {
+            GRASS: -50,
+            ROAD_BASE: -10,
+            PAINT: 1,           
+            RIVER: 5,           // 川は道路より少し上（橋にするため）
+            SCENERY_BG: 20,
+            VEHICLE_BODY: 50,
+            TUNNEL_OVERLAY: 90,   
+            WEATHER_OVERLAY: 100, 
+            SIGNBOARDS: 140,     
+            OVERPASS: 150,        
+            LIGHTS_EMISSIVE: 200, 
+            TUNNEL_ROOF: 250,     
+            UI: 1000
+        };
+        
+        class Car extends Phaser.GameObjects.Container {
+            constructor(scene, x, y, lane, baseSpeed, type = 'sedan') {
+                super(scene, x, y);
+                this.scene = scene;
+                this.lane = lane;
+                this.type = type;
+                this.isChangingLane = false;
+                this.isBroken = false;
+                this.brokenRecoveryTimer = 0;
+                this.isReckless = (Math.random() < 0.05); 
+                this.exitY = -1;
+                
+                this.direction = (lane < NUM_LANES / 2) ? -1 : 1;
+                this.setAngle(this.direction === 1 ? 180 : 0);
+
+                let carWidth = 40;
+                let carHeight = 80;
+                this.currentSpeed = baseSpeed * (0.8 + Math.random() * 0.4);
+                this.targetSpeed = baseSpeed + (Phaser.Math.Between(-25, 50));
+                
+                if (type === 'truck') { carHeight = 160; this.targetSpeed *= 0.65; }
+                else if (this.isReckless) { this.targetSpeed *= 1.6; this.carColor = 0xff3300; }
+
+                this.drawCar(type, carWidth, carHeight);
+                this.highlight = scene.add.graphics().lineStyle(3, 0x00ffcc, 1).strokeRoundedRect(-carWidth/2 - 8, -carHeight/2 - 8, carWidth + 16, carHeight + 16, 12).setVisible(false);
+                this.add(this.highlight);
+
+                this.setSize(carWidth + 40, carHeight + 40);
+                this.setInteractive(new Phaser.Geom.Rectangle(-(carWidth+40)/2, -(carHeight+40)/2, carWidth+40, carHeight+40), Phaser.Geom.Rectangle.Contains);
+                
+                this.setDepth(DEPTH.VEHICLE_BODY); 
+                scene.add.existing(this);
+            }
+
+            drawCar(type, w, h) {
+                const g = this.scene.add.graphics();
+                const colors = [0x3498db, 0xe74c3c, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xecf0f1, 0xe67e22];
+                let color = this.carColor || colors[Math.floor(Math.random() * colors.length)];
+                if (type === 'truck') color = 0x95a5a6;
+                if (type === 'police' || type === 'ambulance') color = 0xffffff;
+
+                g.fillStyle(0x000000, 0.2).fillRoundedRect(-w/2+4, -h/2+4, w, h, 6);
+                g.fillStyle(color, 1).fillRoundedRect(-w/2, -h/2, w, h, 6);
+                g.fillStyle(0x333333, 0.8).fillRect(-w/2+4, -h/2+15, w-8, 15); 
+                g.fillRect(-w/2+4, h/2-25, w-8, 10); 
+                if (type === 'police') g.fillStyle(0x000000, 1).fillRect(-w/2, -5, w, 25);
+
+                this.lightsContainer = this.scene.add.container(this.x, this.y).setAngle(this.angle).setDepth(DEPTH.LIGHTS_EMISSIVE);
+                this.headlightGraphics = this.scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+                this.headlightGraphics.fillStyle(0xffffcc, 0.2).fillCircle(-w/2+8, -h/2-40, 100).fillCircle(w/2-8, -h/2-40, 110);
+                this.lightsContainer.add(this.headlightGraphics);
+
+                this.brakelights = this.scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD).fillStyle(0xff0000, 0.8);
+                this.brakelights.fillRect(-w/2+2, h/2-5, 12, 6).fillRect(w/2-14, h/2-5, 12, 6).setVisible(false);
+                this.lightsContainer.add(this.brakelights);
+
+                this.hazards = this.scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD).fillStyle(0xffaa00, 1.0);
+                this.hazards.fillCircle(-w/2+5, h/2-3, 5).fillCircle(w/2-5, h/2-3, 5).setVisible(false);
+                this.lightsContainer.add(this.hazards);
+
+                if (type === 'police' || type === 'ambulance') {
+                    this.siren = this.scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+                    this.lightsContainer.add(this.siren);
+                }
+                this.add(g);
+            }
+
+            update(others, dayLight, inTunnel) {
+                if (!this.active) return;
+                this.lightsContainer.setPosition(this.x, this.y).setAngle(this.angle);
+                const needsLights = dayLight < 0.7 || inTunnel;
+                this.headlightGraphics.setVisible(needsLights);
+
+                if (!this.isBroken && !this.isReckless && Math.random() < 0.00005) {
+                    this.isBroken = true;
+                    this.brokenRecoveryTimer = Phaser.Math.Between(400, 800);
+                }
+
+                if (this.isBroken) {
+                    this.hazards.setVisible(Math.floor(this.scene.time.now / 300) % 2 === 0);
+                    const targetLane = this.direction === -1 ? 0 : NUM_LANES - 1;
+                    if (this.lane !== targetLane && !this.isChangingLane) this.tryLaneChange(others, targetLane > this.lane ? 1 : -1);
+                    if (this.lane === targetLane) {
+                        this.currentSpeed *= 0.97;
+                        if (this.currentSpeed < 1) {
+                            this.currentSpeed = 0;
+                            if (--this.brokenRecoveryTimer <= 0) { this.isBroken = false; this.hazards.setVisible(false); }
+                        }
+                    }
+                }
+
+                let d = Infinity, lSpeed = 0;
+                others.forEach(other => {
+                    if (other === this || other.lane !== this.lane) return;
+                    let dist = (this.direction === -1) ? (this.y - other.y) : (other.y - this.y);
+                    if (dist > 0 && dist < d) { d = dist; lSpeed = other.currentSpeed; }
+                });
+
+                if (d < 150 && !this.isBroken) {
+                    this.currentSpeed -= 8;
+                    this.brakelights.setVisible(true);
+                    if (this.currentSpeed < lSpeed) this.currentSpeed = lSpeed * 0.95;
+                } else if (!this.isBroken) {
+                    this.brakelights.setVisible(false);
+                    if (this.currentSpeed < this.targetSpeed) this.currentSpeed += 2;
+                }
+
+                if (this.siren) this.siren.clear().fillStyle(Math.floor(this.scene.time.now / 100) % 2 === 0 ? 0xff0000 : 0x0000ff, 0.8).fillCircle(-12, -15, 12).fillCircle(12, -15, 12);
+
+                this.y += this.direction * this.currentSpeed * 0.016;
+                if (this.y < -2500) this.y = WORLD_HEIGHT + 1500;
+                else if (this.y > WORLD_HEIGHT + 2500) this.y = -1500;
+            }
+
+            tryLaneChange(others, forcedDir = 0) {
+                let dir = forcedDir || (Math.random() > 0.5 ? 1 : -1);
+                let newLane = this.lane + dir;
+                if (this.direction === -1) { if (newLane < 0 || newLane >= NUM_LANES/2) return; }
+                else { if (newLane < NUM_LANES/2 || newLane >= NUM_LANES) return; }
+                let isSafe = true;
+                others.forEach(o => { if (o.lane === newLane && Math.abs(this.y - o.y) < 220) isSafe = false; });
+                if (isSafe) {
+                    this.isChangingLane = true;
+                    this.lane = newLane;
+                    this.scene.tweens.add({
+                        targets: this, x: (window.innerWidth / 2 - ROAD_WIDTH / 2) + (newLane * LANE_WIDTH) + LANE_WIDTH / 2,
+                        duration: 800, ease: 'Cubic.easeInOut', onComplete: () => { this.isChangingLane = false; }
+                    });
+                }
+            }
+
+            setSelected(val) { this.highlight.setVisible(val); }
+            destroy(fromScene) { if (this.lightsContainer) this.lightsContainer.destroy(); super.destroy(fromScene); }
+        }
+
+        class MainScene extends Phaser.Scene {
+            constructor() {
+                super('MainScene');
+                this.cars = [];
+                this.scenery = [];
+                this.tunnels = [];
+                this.spawnRate = 30;
+                this.baseTargetSpeed = 200;
+                this.followedCar = null;
+            }
+
+            create() {
+                const width = this.cameras.main.width;
+                const roadX = width / 2;
+
+                this.add.rectangle(roadX, WORLD_HEIGHT/2, width * 2, WORLD_HEIGHT + 10000, 0x1e5d2f).setDepth(DEPTH.GRASS);
+                
+                const roadG = this.add.graphics().setDepth(DEPTH.ROAD_BASE);
+                roadG.fillStyle(0x7f8c8d).fillRect(roadX - ROAD_WIDTH/2 - 40, -5000, ROAD_WIDTH + 80, WORLD_HEIGHT + 10000);
+                roadG.fillStyle(0x222222).fillRect(roadX - ROAD_WIDTH/2, -5000, ROAD_WIDTH, WORLD_HEIGHT + 10000);
+                roadG.fillStyle(0x444444).fillRect(roadX - 10, -5000, 20, WORLD_HEIGHT + 10000); 
+
+                roadG.lineStyle(2, 0xffffff, 0.4);
+                for (let i = 1; i < NUM_LANES; i++) {
+                    if (i === NUM_LANES / 2) continue;
+                    const lx = (roadX - ROAD_WIDTH/2) + (i * LANE_WIDTH);
+                    for (let y = -5000; y < WORLD_HEIGHT + 5000; y += 100) roadG.lineBetween(lx, y, lx, y + 50);
+                }
+
+                // 路面装飾
+                this.addRoadPaint(roadX, -5000, WORLD_HEIGHT + 10000);
+                this.spawnScenery(roadX);
+                this.spawnCars();
+
+                this.createTunnel(roadX, -1500, 2000, true); 
+                this.createTunnel(roadX, WORLD_HEIGHT - 500, 2000, false); 
+
+                this.weatherOverlay = this.add.graphics().setScrollFactor(0).setDepth(DEPTH.WEATHER_OVERLAY);
+                this.cameras.main.setBounds(0, -3000, width, WORLD_HEIGHT + 6000);
+
+                this.setupUI();
+                this.input.on('gameobjectdown', (p, obj) => { if (obj instanceof Car) this.followCar(obj); });
+                this.input.on('pointermove', (p) => { if (!p.isDown || this.followedCar) return; this.cameras.main.scrollY -= (p.y - p.prevPosition.y); });
+            }
+
+            addRoadPaint(roadX, startY, height) {
+                const g = this.add.graphics().setDepth(DEPTH.PAINT);
+                for (let y = startY; y < startY + height; y += 200) {
+                    g.lineStyle(4, 0xffffff, 0.2);
+                    g.lineBetween(roadX - ROAD_WIDTH/2 - 35, y, roadX - ROAD_WIDTH/2 - 5, y - 20);
+                    g.lineBetween(roadX + ROAD_WIDTH/2 + 5, y, roadX + ROAD_WIDTH/2 + 35, y - 20);
+                }
+                const texts = ["NORTH", "SOUTH", "EXIT ONLY", "SLOW DOWN", "80", "60"];
+                for (let y = startY + 1000; y < startY + height; y += 1500) {
+                    const txt = texts[Math.floor(Math.random() * texts.length)];
+                    this.add.text(roadX - ROAD_WIDTH/4, y, "↑", { font: "bold 80px Arial", fill: "rgba(255,255,255,0.15)" }).setOrigin(0.5).setDepth(DEPTH.PAINT);
+                    this.add.text(roadX - ROAD_WIDTH/4, y + 220, txt, { font: "bold 50px Arial", fill: "rgba(255,255,255,0.15)" }).setOrigin(0.5).setAngle(-90).setDepth(DEPTH.PAINT);
+                    this.add.text(roadX + ROAD_WIDTH/4, y, "↓", { font: "bold 80px Arial", fill: "rgba(255,255,255,0.15)" }).setOrigin(0.5).setDepth(DEPTH.PAINT);
+                    this.add.text(roadX + ROAD_WIDTH/4, y - 220, txt, { font: "bold 50px Arial", fill: "rgba(255,255,255,0.15)" }).setOrigin(0.5).setAngle(90).setDepth(DEPTH.PAINT);
+                }
+            }
+
+            spawnScenery(roadX) {
+                this.scenery.push(this.createRiver(roadX, 3500));
+                this.scenery.push(this.createRiver(roadX, 11000));
+                this.scenery.push(this.createOverpass(roadX, 6500));
+                this.scenery.push(this.createOverpass(roadX, 13500));
+                
+                this.scenery.push(this.createSignboard(roadX, 1500, 'bridge'));
+                this.scenery.push(this.createSignboard(roadX, 9000, 'bridge'));
+                this.scenery.push(this.createSignboard(roadX, 12500, 'independent'));
+
+                this.scenery.push(this.createInterchange(roadX, 2500, -1, false)); // 北Entry
+                this.scenery.push(this.createInterchange(roadX, 5500, -1, true));  // 中央Exit
+                this.scenery.push(this.createInterchange(roadX, 8000, 1, false));  // 南Entry
+                this.scenery.push(this.createInterchange(roadX, 10500, 1, true));  // 南Exit
+
+                for (let y = 0; y < WORLD_HEIGHT; y += 300) {
+                    this.createBaronBush(roadX - ROAD_WIDTH/2 - 140, y);
+                    this.createBaronBush(roadX + ROAD_WIDTH/2 + 140, y);
+                }
+            }
+
+            createRiver(roadX, y) {
+                const container = this.add.container(0, y);
+                const river = this.add.graphics().fillStyle(0x0a3d62, 1).fillRect(0, 0, window.innerWidth, 1200);
+                const bridgeDeck = this.add.graphics().fillStyle(0x222222, 1).fillRect(roadX - ROAD_WIDTH/2, 0, ROAD_WIDTH, 1200);
+                // 橋の上のペイント（車線）
+                bridgeDeck.lineStyle(2, 0xffffff, 0.4);
+                for (let i = 1; i < NUM_LANES; i++) {
+                    if (i === NUM_LANES / 2) continue;
+                    const lx = (roadX - ROAD_WIDTH/2) + (i * LANE_WIDTH);
+                    for (let py = 0; py < 1200; py += 100) bridgeDeck.lineBetween(lx, py, lx, py + 50);
+                }
+                bridgeDeck.lineStyle(14, 0x7f8c8d, 1).lineBetween(roadX - ROAD_WIDTH/2 - 12, 0, roadX - ROAD_WIDTH/2 - 12, 1200).lineBetween(roadX + ROAD_WIDTH/2 + 12, 0, roadX + ROAD_WIDTH/2 + 12, 1200);
+                container.add([river, bridgeDeck]).setDepth(DEPTH.RIVER);
+                return container;
+            }
+
+            createOverpass(roadX, y) {
+                const container = this.add.container(0, y);
+                const graphics = this.add.graphics().fillStyle(0x576574, 1).fillRect(0, -20, window.innerWidth, 20); 
+                graphics.fillStyle(0x2c3e50, 1).fillRect(0, 0, window.innerWidth, 400); 
+                graphics.fillStyle(0x44505c, 1).fillRect(0, 400, window.innerWidth, 120); 
+                const label = this.add.text(roadX, 460, "▼ CLEARANCE 5.0m", { font: "bold 26px Arial", fill: "#f1c40f", backgroundColor: "#000" }).setOrigin(0.5);
+                container.add([graphics, label]).setDepth(DEPTH.OVERPASS);
+                return container;
+            }
+
+            createSignboard(roadX, y, type) {
+                const container = this.add.container(0, y);
+                const g = this.add.graphics().fillStyle(0x333333, 1);
+                if (type === 'bridge') {
+                    g.fillRect(roadX-ROAD_WIDTH/2-20,0,10,150).fillRect(roadX+ROAD_WIDTH/2+10,0,10,150).fillRect(roadX-ROAD_WIDTH/2-20,0,ROAD_WIDTH+40,10);
+                    this.drawBoard(container, roadX-ROAD_WIDTH/4, 10, 200, 100);
+                    this.drawBoard(container, roadX+ROAD_WIDTH/4, 10, 200, 100);
+                } else {
+                    const side = Math.random() > 0.5 ? 1 : -1;
+                    const bx = roadX + (side * (ROAD_WIDTH/2 + 100));
+                    g.fillRect(bx-5, 0, 10, 150);
+                    this.drawBoard(container, bx, 0, 200, 100);
+                }
+                container.setDepth(DEPTH.SIGNBOARDS);
+                this.scenery.push(container);
+                return container;
+            }
+
+            drawBoard(container, x, y, w, h) {
+                const g = this.add.graphics().fillStyle(0x005a32, 1).lineStyle(4, 0xffffff, 1).fillRect(x-w/2, y, w, h).strokeRect(x-w/2, y, w, h);
+                const txt = this.add.text(x, y+h/2, "AIRPORT", { font: "bold 20px Arial", fill: "#ffffff" }).setOrigin(0.5);
+                container.add([g, txt]);
+            }
+
+            createInterchange(roadX, y, direction, isExit) {
+                const container = this.add.container(0, y);
+                const side = direction === -1 ? -1 : 1;
+                const startX = roadX + (side * (ROAD_WIDTH/2));
+                const g = this.add.graphics().fillStyle(0x333333, 1);
+                const pts = [{x:startX,y:0},{x:startX+(side*250),y:direction*800},{x:startX+(side*300),y:direction*800},{x:startX+(side*50),y:0}];
+                g.fillPoints(pts, true);
+                const label = this.add.text(startX+(side*180), direction*400, isExit?"EXIT":"ENTRY", { font:"bold 24px Arial", fill:"#f1c40f" }).setOrigin(0.5).setAngle(side*45);
+                container.add([g, label]).setDepth(DEPTH.ROAD_BASE + 5);
+                container.isExit = isExit; container.isEntry = !isExit; container.direction = direction;
+                return container;
+            }
+
+            createBaronBush(x, y) {
+                const points = [{x:-75,y:0},{x:-60,y:-45},{x:-45,y:-20},{x:-30,y:-45},{x:-15,y:-20},{x:0,y:-45},{x:15,y:-20},{x:30,y:-45},{x:45,y:-20},{x:60,y:-45},{x:75,y:0}];
+                const bush = this.add.container(x, y).add(this.add.graphics().fillStyle(0x55a630, 1).fillPoints(points, true).lineStyle(2, 0x80b918, 1).strokePoints(points, true)).setDepth(DEPTH.SCENERY_BG);
+                this.scenery.push(bush);
+            }
+
+            createTunnel(roadX, y, length, isTop) {
+                this.add.graphics().fillStyle(0x111111, 1).fillRect(roadX-ROAD_WIDTH/2-20, y, ROAD_WIDTH+40, length).setDepth(DEPTH.TUNNEL_OVERLAY);
+                this.add.graphics().fillStyle(0x222222, 1).fillRect(roadX-ROAD_WIDTH/2-25, y, ROAD_WIDTH+50, length).setDepth(DEPTH.TUNNEL_ROOF);
+                const py = isTop ? y + length : y;
+                this.add.graphics().fillStyle(0x444444, 1).fillRect(roadX-ROAD_WIDTH/2-80, py-40, ROAD_WIDTH+160, 40).fillRect(roadX-ROAD_WIDTH/2-80, py-40, 60, 100).fillRect(roadX+ROAD_WIDTH/2+20, py-40, 60, 100).setDepth(DEPTH.TUNNEL_ROOF+10);
+                this.tunnels.push({ y, endY: y+length });
+            }
+
+            spawnCars() {
+                this.cars.forEach(c => { if(c.lightsContainer) c.lightsContainer.destroy(); c.destroy(); });
+                this.cars = [];
+                const roadStartX = window.innerWidth / 2 - ROAD_WIDTH / 2;
+                for (let i = 0; i < parseInt(document.getElementById('input-count').value); i++) {
+                    const lane = Math.floor(Math.random() * NUM_LANES);
+                    this.cars.push(new Car(this, roadStartX+(lane*LANE_WIDTH)+LANE_WIDTH/2, Phaser.Math.Between(0, WORLD_HEIGHT), lane, this.baseTargetSpeed));
+                }
+            }
+
+            followCar(car) {
+                if (this.followedCar) this.followedCar.setSelected(false);
+                if (car) { this.followedCar = car; car.setSelected(true); this.cameras.main.startFollow(car, true, 0.1, 0.1); }
+                else { this.followedCar = null; this.cameras.main.stopFollow(); }
+            }
+
+            setupUI() {
+                const ui = document.getElementById('ui-container');
+                const btn = document.getElementById('settings-toggle');
+                btn.onclick = () => { const vis = ui.style.display === 'block'; ui.style.display = vis ? 'none' : 'block'; btn.innerText = vis ? '⚙️ 設定を表示' : '⚙️ 設定を隠す'; };
+                document.getElementById('input-count').oninput = (e) => { document.getElementById('label-count').innerText = `初期車両数: ${e.target.value}`; this.spawnCars(); };
+                document.getElementById('input-spawn').oninput = (e) => this.spawnRate = parseInt(e.target.value);
+                document.getElementById('input-speed').oninput = (e) => this.baseTargetSpeed = parseInt(e.target.value);
+                document.getElementById('reset-cam').onclick = () => this.followCar(null);
+            }
+
+            update(time, delta) {
+                this.timeOfDay = (Math.sin(time * 0.00006) + 1) / 2;
+                const light = Phaser.Math.Clamp(this.timeOfDay * 1.8, 0.1, 1.0);
+                this.weatherOverlay.clear().fillStyle(0x000033, 1 - light).fillRect(0, 0, window.innerWidth, window.innerHeight);
+                
+                if (Math.random() < this.spawnRate / 1000) {
+                    const entries = this.scenery.filter(s => s.isEntry);
+                    if (entries.length > 0) {
+                        const e = entries[Math.floor(Math.random() * entries.length)];
+                        const lane = e.direction === -1 ? 0 : NUM_LANES - 1;
+                        this.cars.push(new Car(this, (window.innerWidth/2 - ROAD_WIDTH/2) + (lane * LANE_WIDTH) + LANE_WIDTH/2, e.y, lane, this.baseTargetSpeed));
+                    }
+                }
+                this.cars = this.cars.filter(c => c.active);
+                this.cars.forEach(c => c.update(this.cars, light, this.tunnels.some(t => c.y > t.y && c.y < t.endY)));
+                const avg = this.cars.length > 0 ? this.cars.reduce((s, c) => s + c.currentSpeed, 0) / this.cars.length : this.baseTargetSpeed;
+                const jam = Phaser.Math.Clamp(1 - (avg / this.baseTargetSpeed), 0, 1);
+                document.getElementById('stats-display').innerHTML = `Vehicles: ${this.cars.length} | Time: ${String(Math.floor(this.timeOfDay * 24)).padStart(2,'0')}:${String(Math.floor((this.timeOfDay * 24 % 1) * 60)).padStart(2,'0')}<div class="meter-container"><div id="jam-meter" style="width: ${jam * 100}%; background: ${jam < 0.3 ? "#00ffcc" : jam < 0.6 ? "#ffcc00" : "#ff0000"};"></div></div>`;
+                this.scenery.forEach(s => {
+                    const camY = this.cameras.main.scrollY;
+                    if (s.y < camY - 3000) s.y += WORLD_HEIGHT;
+                    if (s.y > camY + window.innerHeight + 3000) s.y -= WORLD_HEIGHT;
+                });
+            }
+        }
+        new Phaser.Game({ type: Phaser.AUTO, width: window.innerWidth, height: window.innerHeight, parent: 'game-container', backgroundColor: '#1e5d2f', scene: MainScene });
+    </script>
+</body>
+</html>

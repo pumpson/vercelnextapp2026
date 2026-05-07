@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Infinite Adventure - Date Fixed</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #222; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        #game-container { width: 100%; height: 100%; }
+        .ui-overlay { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 8px; pointer-events: none; font-size: 12px; z-index: 10; }
+        
+        .build-menu { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; background: rgba(0, 0, 0, 0.7); padding: 10px; border-radius: 50px; z-index: 20; border: 2px solid #555; }
+        .build-btn { width: 45px; height: 45px; border-radius: 23px; border: none; background: #444; color: white; font-size: 20px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+        .build-btn.active { background: #fff; transform: scale(1.1); box-shadow: 0 0 10px #fff; }
+
+        #stay-action { display: none; position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); background: #ff9800; color: white; padding: 12px 24px; border-radius: 30px; border: 2px solid white; font-weight: bold; z-index: 30; }
+        
+        #sign-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 12px; z-index: 100; width: 80%; max-width: 280px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #sign-modal input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        #sign-modal button { width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        
+        #save-notice { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            background: rgba(0,0,0,0.9); 
+            color: white; 
+            padding: 25px; 
+            border-radius: 15px; 
+            display: none; 
+            z-index: 200; 
+            text-align: center;
+            border: 2px solid #4CAF50;
+            min-width: 200px;
+        }
+        .stats-val { color: #4CAF50; font-size: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <div class="ui-overlay" id="ui">座標: 0, 0<br>読み込み中...</div>
+    
+    <div class="build-menu">
+        <button class="build-btn active" onclick="selectItem('tent', this)" title="テント">⛺</button>
+        <button class="build-btn" onclick="selectItem('fire', this)" title="焚き火">🔥</button>
+        <button class="build-btn" onclick="selectItem('sign', this)" title="看板">🪧</button>
+        <button class="build-btn" onclick="selectItem('bridge', this)" title="橋">🪵</button>
+    </div>
+
+    <button id="stay-action" onclick="handleStay()">⛺ 宿泊してセーブ</button>
+
+    <div id="sign-modal">
+        <h3 style="margin:0; font-size:16px;">看板に書くこと</h3>
+        <input type="text" id="sign-input" placeholder="メッセージを入力..." maxlength="20">
+        <button onclick="confirmSign()">設置する</button>
+    </div>
+
+    <div id="save-notice">
+        <div style="font-size: 18px; margin-bottom: 10px;">⛺ 宿泊完了</div>
+        <div id="save-stats">
+            今回の歩数: <span id="session-steps" class="stats-val">0</span><br>
+            累計歩数: <span id="total-steps" class="stats-val">0</span>
+        </div>
+        <div style="margin-top: 15px; font-size: 12px; color: #888;">データを保存しました</div>
+    </div>
+
+    <script>
+        const TILE_SIZE = 48;
+        const CHUNK_SIZE = 8;
+        const VIEW_DISTANCE = 2;
+        const STORAGE_KEY = 'adv_save_v5'; // バージョンアップ
+
+        let selectedItem = 'tent';
+        let pendingSignPos = null;
+        let currentTentKey = null;
+
+        // UI用グローバル関数
+        window.selectItem = (item, btn) => {
+            selectedItem = item;
+            document.querySelectorAll('.build-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        };
+
+        window.confirmSign = () => {
+            const input = document.getElementById('sign-input');
+            const text = input.value || "看板";
+            if (pendingSignPos) {
+                game.scene.scenes[0].applySign(pendingSignPos.tx, pendingSignPos.ty, text);
+            }
+            document.getElementById('sign-modal').style.display = 'none';
+            input.value = "";
+            pendingSignPos = null;
+        };
+
+        window.handleStay = () => { if (currentTentKey) game.scene.scenes[0].stayInTent(currentTentKey); };
+
+        class MainScene extends Phaser.Scene {
+            constructor() {
+                super('MainScene');
+                this.chunks = new Map();
+                this.modifiedTiles = new Map();
+                this.player = null;
+                this.moveTarget = null;
+                this.lastCX = null;
+                this.lastCY = null;
+                
+                this.totalSteps = 0;
+                this.stepsSinceLastSave = 0;
+                this.distanceBuffer = 0;
+            }
+
+            preload() {
+                const drawEmoji = (key, emoji) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = canvas.height = TILE_SIZE;
+                    const ctx = canvas.getContext('2d');
+                    ctx.font = `${TILE_SIZE * 0.75}px serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(emoji, TILE_SIZE/2, TILE_SIZE/2);
+                    this.textures.addCanvas(key, canvas);
+                };
+                const assets = { grass:'🌱', forest:'🌲', water:'🌊', deepwater:'💎', sand:'🏖️', tent:'⛺', fire:'🔥', sign:'🪧', bridge:'🪵', player:'🚶' };
+                Object.entries(assets).forEach(([k, v]) => drawEmoji(k, v));
+            }
+
+            create() {
+                this.loadGame();
+                const startPos = this.savedPos || { x: TILE_SIZE/2, y: TILE_SIZE/2 };
+                
+                this.player = this.add.sprite(startPos.x, startPos.y, 'player').setDepth(100);
+                this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+
+                this.updateChunks();
+
+                this.input.on('pointerdown', () => { 
+                    if (document.getElementById('sign-modal').style.display === 'block') return;
+                    this.isDragging = false; 
+                    this.pTime = Date.now(); 
+                });
+                
+                this.input.on('pointermove', (p) => {
+                    if (p.isDown) {
+                        const dist = Phaser.Math.Distance.Between(p.downX, p.downY, p.x, p.y);
+                        if (dist > 15) {
+                            this.isDragging = true;
+                            this.moveTarget = { x: p.worldX, y: p.worldY };
+                        }
+                    }
+                });
+
+                this.input.on('pointerup', (p) => {
+                    if (!this.isDragging && (Date.now() - this.pTime < 300)) {
+                        this.handleTap(p.worldX, p.worldY);
+                    }
+                    this.moveTarget = null;
+                });
+
+                this.ui = document.getElementById('ui');
+                this.stayBtn = document.getElementById('stay-action');
+            }
+
+            // 日付・時間のフォーマット用関数
+            getFormattedTimestamp() {
+                const now = new Date();
+                const m = now.getMonth() + 1;
+                const d = now.getDate();
+                const h = now.getHours();
+                const min = now.getMinutes().toString().padStart(2, '0');
+                return `${m}/${d} ${h}:${min}`;
+            }
+
+            handleTap(wX, wY) {
+                const tX = Math.floor(wX / TILE_SIZE), tY = Math.floor(wY / TILE_SIZE);
+                if (selectedItem === 'sign') {
+                    pendingSignPos = { tx: tX, ty: tY };
+                    document.getElementById('sign-modal').style.display = 'block';
+                } else {
+                    this.placeObject(tX, tY, selectedItem);
+                }
+            }
+
+            applySign(tx, ty, text) { this.placeObject(tx, ty, 'sign', text); }
+
+            placeObject(tx, ty, type, text = null) {
+                const key = `${tx},${ty}`;
+                const ts = this.getFormattedTimestamp();
+                this.modifiedTiles.set(key, { type, text, timestamp: ts });
+                this.refreshChunk(Math.floor(tx/CHUNK_SIZE), Math.floor(ty/CHUNK_SIZE));
+            }
+
+            isPassable(worldX, worldY) {
+                const tx = Math.floor(worldX / TILE_SIZE);
+                const ty = Math.floor(worldY / TILE_SIZE);
+                const key = `${tx},${ty}`;
+                if (this.modifiedTiles.has(key)) {
+                    if (this.modifiedTiles.get(key).type === 'bridge') return true;
+                }
+                const h = this.getTerrainHeight(tx, ty);
+                return h >= 0.48;
+            }
+
+            update(time, delta) {
+                if (this.moveTarget) {
+                    const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, this.moveTarget.x, this.moveTarget.y);
+                    const speed = 0.25 * delta;
+                    
+                    const nextX = this.player.x + Math.cos(angle) * speed;
+                    const nextY = this.player.y + Math.sin(angle) * speed;
+
+                    let actualDist = 0;
+                    if (this.isPassable(nextX, this.player.y)) {
+                        actualDist += Math.abs(nextX - this.player.x);
+                        this.player.x = nextX;
+                    }
+                    if (this.isPassable(this.player.x, nextY)) {
+                        actualDist += Math.abs(nextY - this.player.y);
+                        this.player.y = nextY;
+                    }
+
+                    this.distanceBuffer += actualDist;
+                    if (this.distanceBuffer >= TILE_SIZE) {
+                        const steps = Math.floor(this.distanceBuffer / TILE_SIZE);
+                        this.totalSteps += steps;
+                        this.stepsSinceLastSave += steps;
+                        this.distanceBuffer %= TILE_SIZE;
+                    }
+
+                    this.player.flipX = Math.cos(angle) < 0;
+                }
+
+                const px = Math.floor(this.player.x / TILE_SIZE), py = Math.floor(this.player.y / TILE_SIZE);
+                const current = this.modifiedTiles.get(`${px},${py}`);
+                
+                if (current && current.type === 'tent') {
+                    this.stayBtn.style.display = 'block';
+                    currentTentKey = `${px},${py}`;
+                } else {
+                    this.stayBtn.style.display = 'none';
+                }
+
+                const cx = Math.floor(this.player.x / (CHUNK_SIZE * TILE_SIZE));
+                const cy = Math.floor(this.player.y / (CHUNK_SIZE * TILE_SIZE));
+                if (cx !== this.lastCX || cy !== this.lastCY) {
+                    this.updateChunks(cx, cy);
+                    this.lastCX = cx; this.lastCY = cy;
+                }
+
+                this.ui.innerHTML = `座標: ${px}, ${py}<br>累計歩数: ${this.totalSteps} 歩`;
+            }
+
+            smoothNoise(x, y) {
+                const getVal = (vX, vY) => {
+                    const s = Math.sin(vX * 12.9898 + vY * 78.233) * 43758.5453;
+                    return s - Math.floor(s);
+                };
+                const iX = Math.floor(x), iY = Math.floor(y);
+                const fX = x - iX, fY = y - iY;
+                const a = getVal(iX, iY), b = getVal(iX + 1, iY), c = getVal(iX, iY + 1), d = getVal(iX + 1, iY + 1);
+                const u = fX * fX * (3.0 - 2.0 * fX), v = fY * fY * (3.0 - 2.0 * fY);
+                return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+            }
+
+            getTerrainHeight(x, y) {
+                let e = 1.0 * this.smoothNoise(x * 0.05, y * 0.05);
+                e += 0.5 * this.smoothNoise(x * 0.1, y * 0.1);
+                e += 0.25 * this.smoothNoise(x * 0.4, y * 0.4);
+                return e / 1.75;
+            }
+
+            createChunk(cx, cy) {
+                const group = this.add.group();
+                const startX = cx * CHUNK_SIZE * TILE_SIZE;
+                const startY = cy * CHUNK_SIZE * TILE_SIZE;
+
+                for (let ty = 0; ty < CHUNK_SIZE; ty++) {
+                    for (let tx = 0; tx < CHUNK_SIZE; tx++) {
+                        const tX = cx * CHUNK_SIZE + tx, tY = cy * CHUNK_SIZE + ty;
+                        const key = `${tX},${tY}`;
+                        let texture;
+                        let info = null;
+                        let isTent = false;
+
+                        if (this.modifiedTiles.has(key)) {
+                            const mod = this.modifiedTiles.get(key);
+                            texture = mod.type;
+                            if (mod.type === 'sign') info = mod.text;
+                            if (mod.type === 'tent') {
+                                info = mod.timestamp; // 日付入りのタイムスタンプ
+                                isTent = true;
+                            }
+                        } else {
+                            const h = this.getTerrainHeight(tX, tY);
+                            if (h < 0.25) texture = 'deepwater';
+                            else if (h < 0.48) texture = 'water';
+                            else if (h < 0.52) texture = 'sand';
+                            else if (h < 0.78) texture = 'grass';
+                            else texture = 'forest';
+                        }
+
+                        const x = startX + tx * TILE_SIZE;
+                        const y = startY + ty * TILE_SIZE;
+                        const tile = this.add.image(x, y, texture).setOrigin(0);
+                        group.add(tile);
+
+                        if (info) {
+                            const style = { 
+                                fontSize: '10px', 
+                                backgroundColor: isTent ? 'rgba(255,200,0,0.9)' : 'rgba(255,255,255,0.8)', 
+                                color: '#000', 
+                                padding: {x:4, y:2} 
+                            };
+                            const prefix = isTent ? "⛺ Stay: " : "";
+                            const txt = this.add.text(x + TILE_SIZE/2, y - 2, prefix + info, style).setOrigin(0.5, 1).setDepth(50);
+                            group.add(txt);
+                        }
+                    }
+                }
+                return group;
+            }
+
+            stayInTent(key) {
+                const tent = this.modifiedTiles.get(key);
+                const ts = this.getFormattedTimestamp();
+                tent.timestamp = ts;
+                
+                document.getElementById('session-steps').innerText = this.stepsSinceLastSave;
+                document.getElementById('total-steps').innerText = this.totalSteps;
+                
+                this.saveGame();
+                this.stepsSinceLastSave = 0;
+
+                const [tx, ty] = key.split(',').map(Number);
+                this.refreshChunk(Math.floor(tx/CHUNK_SIZE), Math.floor(ty/CHUNK_SIZE));
+                
+                const n = document.getElementById('save-notice'); 
+                n.style.display = 'block';
+                setTimeout(() => n.style.display = 'none', 4000);
+            }
+
+            saveGame() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    tiles: Array.from(this.modifiedTiles.entries()),
+                    pos: { x: this.player.x, y: this.player.y },
+                    totalSteps: this.totalSteps,
+                    stepsSinceLastSave: this.stepsSinceLastSave
+                }));
+            }
+            loadGame() {
+                const s = localStorage.getItem(STORAGE_KEY);
+                if (s) { 
+                    const d = JSON.parse(s); 
+                    this.modifiedTiles = new Map(d.tiles); 
+                    this.savedPos = d.pos; 
+                    this.totalSteps = d.totalSteps || 0;
+                    this.stepsSinceLastSave = d.stepsSinceLastSave || 0;
+                }
+            }
+
+            updateChunks(cX = Math.floor(this.player.x/(CHUNK_SIZE*TILE_SIZE)), cY = Math.floor(this.player.y/(CHUNK_SIZE*TILE_SIZE))) {
+                const needed = new Set();
+                for (let x = cX - VIEW_DISTANCE; x <= cX + VIEW_DISTANCE; x++) {
+                    for (let y = cY - VIEW_DISTANCE; y <= cY + VIEW_DISTANCE; y++) {
+                        const k = `${x},${y}`; needed.add(k);
+                        if (!this.chunks.has(k)) this.chunks.set(k, this.createChunk(x, y));
+                    }
+                }
+                this.chunks.forEach((g, k) => { if (!needed.has(k)) { g.destroy(true); this.chunks.delete(k); } });
+            }
+            refreshChunk(cx, cy) { const k = `${cx},${cy}`; if (this.chunks.has(k)) { this.chunks.get(k).destroy(true); this.chunks.set(k, this.createChunk(cx, cy)); } }
+        }
+
+        const game = new Phaser.Game({
+            type: Phaser.AUTO,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            parent: 'game-container',
+            scene: MainScene,
+            render: { pixelArt: true }
+        });
+        window.addEventListener('resize', () => game.scale.resize(window.innerWidth, window.innerHeight));
+    </script>
+</body>
+</html>

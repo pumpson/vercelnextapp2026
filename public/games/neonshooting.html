@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>City Destroyer - Zoned Generation</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #1a1a1a; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { box-shadow: 0 0 50px rgba(255, 50, 50, 0.5); cursor: none; }
+    </style>
+</head>
+<body>
+
+<script>
+window.onload = function() {
+    class MainScene extends Phaser.Scene {
+        constructor() {
+            super('MainScene');
+            this.score = 0;
+            this.isGameOver = false;
+            this.tileSize = 100;
+            this.gridWidth = 8;
+            this.spawnY = -100;
+            this.scrollSpeed = 4;
+            this.distanceCovered = 0;
+            
+            this.roadColumns = [2, 5];
+            this.stepsSinceLastShift = 0;
+            this.stepsSinceLastCross = 0;
+            
+            this.buildingTypes = ['build_std', 'build_twin', 'build_glass', 'build_house', 'build_factory_saw'];
+            this.explosiveTypes = ['build_factory', 'build_substation', 'build_hazard'];
+            
+            this.occupiedNextRow = new Array(8).fill(false);
+            this.initialSafeRows = 15; 
+
+            // --- ゾーン管理用変数 ---
+            this.currentZone = 'RESIDENTIAL'; // RESIDENTIAL, INDUSTRIAL, URBAN, RURAL
+            this.zoneRowsLeft = 10;
+        }
+
+        create() {
+            const { width, height } = this.sys.game.config;
+            this.isGameOver = false;
+            this.score = 0;
+            this.scrollSpeed = 4;
+            this.roadColumns = [2, 5];
+            this.occupiedNextRow.fill(false);
+            this.initialSafeRows = 15;
+            this.currentZone = 'RESIDENTIAL';
+            this.zoneRowsLeft = 12;
+
+            this.generateTextures();
+
+            this.cityLayer = this.add.group();
+            this.buildings = this.physics.add.group();
+            this.bullets = this.physics.add.group({ defaultKey: 'bullet', maxSize: 50 });
+
+            for (let y = -200; y < height + 100; y += this.tileSize) {
+                this.spawnCityRow(y, true);
+            }
+
+            const startX = this.roadColumns[0] * this.tileSize + (this.tileSize / 2);
+            this.player = this.physics.add.sprite(startX, height - 100, 'player');
+            this.player.setOrigin(0.5, 0.5);
+            this.player.setDepth(20);
+            this.player.setCollideWorldBounds(true);
+            
+            this.player.body.setSize(12, 12);
+            this.player.body.setOffset(14, 14);
+
+            this.scoreText = this.add.text(20, 20, 'DESTROYED: 0', { 
+                fontSize: '32px', fill: '#ffdd44', fontStyle: 'bold', stroke: '#ff0000', strokeThickness: 3 
+            }).setDepth(100);
+
+            // ゾーン表示テキスト（デバッグ・演出用）
+            this.zoneInfoText = this.add.text(width - 20, 20, '', { 
+                fontSize: '20px', fill: '#ffffff', fontStyle: 'bold', align: 'right'
+            }).setOrigin(1, 0).setDepth(100);
+
+            this.physics.add.overlap(this.bullets, this.buildings, this.hitBuilding, null, this);
+            this.physics.add.overlap(this.player, this.buildings, this.gameOver, null, this);
+
+            this.cursors = this.input.keyboard.createCursorKeys();
+            
+            this.input.on('pointermove', (p) => { 
+                if(!this.isGameOver) { 
+                    this.player.x = p.x; 
+                    this.player.y = p.y; 
+                }
+            });
+
+            this.time.addEvent({ delay: 120, callback: this.fireBullet, callbackScope: this, loop: true });
+        }
+
+        generateTextures() {
+            const createTex = (key, w, h, drawFn) => {
+                if (this.textures.exists(key)) return;
+                const g = this.make.graphics({ x: 0, y: 0, add: false });
+                drawFn(g);
+                g.generateTexture(key, w, h);
+                g.destroy();
+            };
+
+            const drawTargetBorder = (g, w, h, isExplosive = false) => {
+                const color = isExplosive ? 0xffaa00 : 0xff4444;
+                g.lineStyle(4, color, 0.6); 
+                g.strokeRect(2, 2, w - 4, h - 4);
+                g.lineStyle(2, 0xffffff, 0.8);
+                g.lineBetween(2, 2, 15, 2); g.lineBetween(2, 2, 2, 15);
+                g.lineBetween(w-2, h-2, w-15, h-2); g.lineBetween(w-2, h-2, w-2, h-15);
+            };
+
+            createTex('road_v', 100, 100, g => {
+                g.fillStyle(0x333333).fillRect(0, 0, 100, 100);
+                g.fillStyle(0x4a4a4a).fillRect(5, 0, 90, 100);
+                g.fillStyle(0xffffff, 0.4).fillRect(48, 10, 4, 30).fillRect(48, 60, 4, 30);
+                g.fillStyle(0x666666).fillRect(0, 0, 5, 100).fillRect(95, 0, 5, 100);
+            });
+            createTex('road_cross', 100, 100, g => {
+                g.fillStyle(0x4a4a4a).fillRect(0, 0, 100, 100);
+                g.fillStyle(0xffffff, 0.2).fillRect(10, 40, 80, 20).fillRect(40, 10, 20, 80);
+            });
+            createTex('road_h', 100, 100, g => {
+                g.fillStyle(0x333333).fillRect(0, 0, 100, 100);
+                g.fillStyle(0x4a4a4a).fillRect(0, 5, 100, 90);
+                g.fillStyle(0xffffff, 0.4).fillRect(10, 48, 30, 4).fillRect(60, 48, 30, 4);
+            });
+            createTex('path_h', 100, 100, g => {
+                g.fillStyle(0x2a2a2a).fillRect(0, 0, 100, 100);
+                g.fillStyle(0x444444).fillRect(0, 35, 100, 30);
+            });
+            createTex('ground_field', 100, 100, g => {
+                g.fillStyle(0x5d4b3f).fillRect(0, 0, 100, 100);
+                g.fillStyle(0x44aa44, 0.7);
+                for(let i=0; i<5; i++) g.fillRect(10 + i*18, 5, 10, 90);
+            });
+            createTex('ground_parking', 100, 100, g => {
+                g.fillStyle(0x3d3d3d).fillRect(0, 0, 100, 100);
+                g.lineStyle(2, 0xffffff, 0.8);
+                for(let i=0; i<3; i++) {
+                    g.strokeRect(10, 10 + i*30, 35, 20);
+                    g.strokeRect(55, 10 + i*30, 35, 20);
+                }
+            });
+
+            createTex('build_std', 100, 100, g => {
+                g.fillStyle(0x2a2a2a).fillRect(5, 5, 90, 90);
+                g.fillStyle(0x000000, 0.3).fillRect(50, 5, 45, 90);
+                for(let i=0; i<4; i++) for(let j=0; j<5; j++) {
+                    const lit = Math.random() > 0.3;
+                    g.fillStyle(lit ? 0xffffbb : 0x333333, 1).fillRect(15 + i*20, 15 + j*15, 12, 10);
+                }
+                g.lineStyle(2, 0x888888).strokeRect(5, 5, 90, 90);
+                drawTargetBorder(g, 100, 100);
+            });
+
+            createTex('build_house', 100, 100, g => {
+                g.fillStyle(0x5d3b2f).fillTriangle(20, 45, 50, 5, 80, 45);
+                g.fillStyle(0xaa6533).fillRect(25, 45, 50, 45);
+                g.fillStyle(0x333333).fillRect(45, 70, 12, 20);
+                drawTargetBorder(g, 100, 100);
+            });
+
+            createTex('build_twin', 100, 100, g => {
+                const drawT = (x) => {
+                    g.fillStyle(0x222222).fillRect(x, 5, 30, 90);
+                    g.fillStyle(0x00ffff, 0.5);
+                    for(let j=0; j<10; j++) g.fillRect(x+5, 10+j*8, 20, 2);
+                };
+                drawT(10); drawT(60);
+                drawTargetBorder(g, 100, 100);
+            });
+
+            createTex('build_glass', 100, 100, g => {
+                g.fillStyle(0x114466).fillRect(5, 5, 90, 90);
+                g.lineStyle(10, 0xffffff, 0.1).lineBetween(10, 90, 90, 10);
+                g.lineStyle(1, 0x55ddff, 0.6);
+                for(let i=0; i<6; i++) g.lineBetween(5 + i*15, 5, 5 + i*15, 95);
+                for(let j=0; j<6; j++) g.lineBetween(5, 5 + j*15, 95, 5 + j*15);
+                drawTargetBorder(g, 100, 100);
+            });
+
+            createTex('build_factory_saw', 100, 100, g => {
+                g.fillStyle(0x555555).fillRect(10, 50, 80, 40);
+                for(let i=0; i<3; i++) {
+                    g.fillStyle(0x777777).beginPath().moveTo(10 + i*26, 50).lineTo(10 + (i+1)*26, 50).lineTo(10 + i*26, 30).closePath().fillPath();
+                }
+                drawTargetBorder(g, 100, 100);
+            });
+
+            createTex('build_factory', 100, 100, g => {
+                g.fillStyle(0x444444).fillRect(10, 40, 80, 50);
+                g.fillStyle(0x777777).fillRect(20, 10, 15, 35);
+                g.fillStyle(0xff0000).fillCircle(75, 70, 20);
+                g.lineStyle(2, 0xffffff, 0.8).strokeCircle(75, 70, 20);
+                drawTargetBorder(g, 100, 100, true);
+            });
+
+            createTex('build_substation', 100, 100, g => {
+                g.fillStyle(0x333333).fillRect(5, 10, 90, 85);
+                g.fillStyle(0x4444aa).fillRect(15, 30, 25, 50).fillRect(55, 30, 25, 50);
+                g.lineStyle(1, 0x6666ff).strokeRect(15, 30, 25, 50).strokeRect(55, 30, 25, 50);
+                drawTargetBorder(g, 100, 100, true);
+            });
+
+            createTex('build_hazard', 100, 100, g => {
+                g.fillStyle(0x333333).fillRect(5, 5, 90, 90);
+                for(let i=0; i<3; i++) for(let j=0; j<2; j++) {
+                    g.fillStyle(0xffcc00).fillRect(15 + i*25, 15 + j*40, 20, 30);
+                    g.lineStyle(1, 0x000000).strokeRect(15 + i*25, 15 + j*40, 20, 30);
+                }
+                drawTargetBorder(g, 100, 100, true);
+            });
+
+            createTex('build_large_v', 100, 200, g => {
+                g.fillStyle(0x333333).fillRect(5, 5, 90, 190);
+                for(let j=0; j<15; j++) g.fillStyle(0x77ccff, 0.4).fillRect(15, 15 + j*12, 70, 8);
+                drawTargetBorder(g, 100, 200);
+            });
+
+            createTex('build_large_h', 200, 100, g => {
+                g.fillStyle(0x3a3a3a).fillRect(5, 5, 190, 90);
+                g.lineStyle(3, 0xffffff, 0.7).strokeCircle(100, 50, 35);
+                g.lineStyle(4, 0xffffff, 0.7).lineBetween(90, 50, 110, 50);
+                drawTargetBorder(g, 200, 100);
+            });
+
+            createTex('player', 40, 40, g => {
+                g.fillStyle(0x00ffff).fillTriangle(20, 0, 0, 40, 40, 40);
+                g.fillStyle(0x008888).fillTriangle(20, 40, 5, 35, 35, 35);
+                g.fillStyle(0xffffff, 0.6).fillTriangle(20, 5, 12, 30, 28, 30);
+                g.fillStyle(0xffffff).fillCircle(20, 26, 4);
+            });
+            createTex('bullet', 10, 10, g => {
+                g.fillStyle(0xffffff).fillCircle(5, 5, 5);
+                g.fillStyle(0xffcc00).fillCircle(5, 5, 3);
+            });
+        }
+
+        updateCityPlan() {
+            this.stepsSinceLastShift++;
+            this.stepsSinceLastCross++;
+
+            // ゾーンの更新
+            if (this.zoneRowsLeft <= 0) {
+                const zones = ['RESIDENTIAL', 'INDUSTRIAL', 'URBAN', 'RURAL'];
+                this.currentZone = Phaser.Utils.Array.GetRandom(zones.filter(z => z !== this.currentZone));
+                this.zoneRowsLeft = Phaser.Math.Between(10, 18);
+                this.zoneInfoText.setText(`ZONE: ${this.currentZone}`);
+            }
+            this.zoneRowsLeft--;
+
+            if (this.stepsSinceLastShift > 10) {
+                this.roadColumns = this.roadColumns.map(col => {
+                    const shift = Phaser.Math.RND.pick([-1, 0, 1]);
+                    const newCol = col + shift;
+                    return (newCol >= 0 && newCol < this.gridWidth) ? newCol : col;
+                });
+                this.stepsSinceLastShift = 0;
+            }
+
+            let isCrossRow = (this.stepsSinceLastCross > 12 && Phaser.Math.Between(0, 10) > 8);
+            if(isCrossRow) this.stepsSinceLastCross = 0;
+            return isCrossRow;
+        }
+
+        spawnCityRow(y, forceSafe = false) {
+            const isSafeZone = forceSafe || this.initialSafeRows > 0;
+            if (!forceSafe && this.initialSafeRows > 0) this.initialSafeRows--;
+
+            const isHorizontalStreet = isSafeZone ? false : this.updateCityPlan();
+            let skipNextX = false;
+
+            for (let x = 0; x < this.gridWidth; x++) {
+                if (skipNextX) { skipNextX = false; continue; }
+                if (this.occupiedNextRow[x]) {
+                    this.occupiedNextRow[x] = false;
+                    continue;
+                }
+
+                let posX = x * this.tileSize + this.tileSize / 2;
+                let posY = y;
+
+                if (this.roadColumns.includes(x)) {
+                    const tileType = isHorizontalStreet ? 'road_cross' : 'road_v';
+                    this.cityLayer.create(posX, posY, tileType);
+                } else if (isHorizontalStreet) {
+                    this.cityLayer.create(posX, posY, 'road_h');
+                } else {
+                    if (!isSafeZone && Phaser.Math.Between(0, 10) > 2) {
+                        const rand = Phaser.Math.Between(0, 100);
+                        let type = '';
+
+                        // --- ゾーンごとの出現ロジック ---
+                        switch(this.currentZone) {
+                            case 'RESIDENTIAL': // 住宅街：民家がメイン
+                                if (rand > 40) type = 'build_house';
+                                else type = Phaser.Utils.Array.GetRandom(this.buildingTypes);
+                                break;
+                            case 'INDUSTRIAL': // 工業地帯：工場と爆発物がメイン
+                                if (rand > 70) type = Phaser.Utils.Array.GetRandom(this.explosiveTypes);
+                                else if (rand > 40) type = 'build_factory_saw';
+                                else type = 'build_std';
+                                break;
+                            case 'URBAN': // オフィス街：ビルと大型建造物がメイン
+                                if (rand > 90 && x < this.gridWidth - 1 && !this.roadColumns.includes(x+1)) {
+                                    const b = this.buildings.create(posX + 50, posY, 'build_large_h');
+                                    b.setTint(Phaser.Display.Color.RandomRGB().color);
+                                    b.body.setSize(180, 80);
+                                    skipNextX = true;
+                                    continue;
+                                } else if (rand > 80) {
+                                    const b = this.buildings.create(posX, posY - 50, 'build_large_v');
+                                    b.setTint(Phaser.Display.Color.RandomRGB().color);
+                                    b.body.setSize(80, 180);
+                                    this.occupiedNextRow[x] = true;
+                                    continue;
+                                }
+                                type = Phaser.Utils.Array.GetRandom(['build_std', 'build_twin', 'build_glass']);
+                                break;
+                            case 'RURAL': // 郊外：空き地や駐車場が多く、建物が少ない
+                                if (rand > 80) type = 'build_house';
+                                else { // 建物なし（地面のみ）
+                                    this.cityLayer.create(posX, posY, Phaser.Math.Between(0,1) ? 'ground_field' : 'ground_parking');
+                                    continue;
+                                }
+                                break;
+                        }
+
+                        if (type) {
+                            const b = this.buildings.create(posX, posY, type);
+                            if (!this.explosiveTypes.includes(type)) {
+                                b.setTint(Phaser.Display.Color.RandomRGB().color);
+                            }
+                            b.body.setSize(type === 'build_house' ? 60 : 80, type === 'build_house' ? 60 : 80);
+                        }
+
+                    } else {
+                        // 背景デコレーション
+                        const r = Phaser.Math.Between(0, 10);
+                        let tex = 'path_h';
+                        if (this.currentZone === 'RURAL' || this.currentZone === 'RESIDENTIAL') {
+                            if (r > 6) tex = 'ground_field';
+                        } else if (this.currentZone === 'URBAN' || this.currentZone === 'INDUSTRIAL') {
+                            if (r > 6) tex = 'ground_parking';
+                        }
+                        this.cityLayer.create(posX, posY, tex);
+                    }
+                }
+            }
+        }
+
+        update() {
+            if (this.isGameOver) return;
+
+            const speed = 6;
+            if (this.cursors.left.isDown) this.player.x -= speed;
+            if (this.cursors.right.isDown) this.player.x += speed;
+            if (this.cursors.up.isDown) this.player.y -= speed;
+            if (this.cursors.down.isDown) this.player.y += speed;
+
+            [this.cityLayer, this.buildings].forEach(group => {
+                group.getChildren().slice().forEach(child => {
+                    child.y += this.scrollSpeed;
+                    if (child.y > 800) child.destroy();
+                });
+            });
+
+            this.distanceCovered += this.scrollSpeed;
+            if (this.distanceCovered >= this.tileSize) {
+                this.spawnCityRow(this.spawnY);
+                this.distanceCovered = 0;
+                this.scrollSpeed += 0.002;
+            }
+        }
+
+        fireBullet() {
+            if (this.isGameOver) return;
+            const b = this.bullets.get(this.player.x, this.player.y - 20);
+            if (b) {
+                b.setActive(true).setVisible(true);
+                b.setOrigin(0.5, 0.5);
+                b.body.velocity.y = -800;
+            }
+            this.bullets.getChildren().slice().forEach(bullet => {
+                if (bullet.y < -50) bullet.destroy();
+            });
+        }
+
+        hitBuilding(bullet, building) {
+            bullet.destroy();
+            
+            let isExplosive = this.explosiveTypes.includes(building.texture.key);
+            let points = isExplosive ? 200 : 50;
+            let explosionScale = isExplosive ? 3.5 : 1.2;
+            let shakePower = isExplosive ? 0.03 : 0.01;
+            let particleCount = isExplosive ? 80 : 25;
+            let particleColor = 0xffffff;
+
+            if (building.texture.key === 'build_substation') {
+                particleColor = 0x88ffff; 
+            } else if (isExplosive) {
+                particleColor = 0xffaa00; 
+            } else if (building.texture.key.includes('large')) {
+                points = 150; explosionScale = 1.8;
+            }
+
+            this.score += points;
+            this.scoreText.setText('DESTROYED: ' + this.score);
+            
+            this.add.particles(building.x, building.y, 'bullet', {
+                speed: { min: -300 * explosionScale, max: 300 * explosionScale },
+                scale: { start: 2 * explosionScale, end: 0 },
+                lifespan: 700,
+                tint: particleColor,
+                blendMode: 'ADD',
+                count: particleCount,
+                stopAfter: particleCount
+            });
+            
+            building.destroy();
+            this.cameras.main.shake(300, shakePower);
+        }
+
+        gameOver() {
+            if (this.isGameOver) return;
+            this.isGameOver = true;
+            this.physics.pause();
+            this.player.setTint(0xff0000);
+            const { width, height } = this.sys.game.config;
+            this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.7).setDepth(150);
+            this.add.text(width/2, height/2, 'CITY WIPED OUT\n\nClick to Restart', { 
+                fontSize: '48px', fill: '#ff4444', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 4
+            }).setOrigin(0.5).setDepth(200);
+            this.input.once('pointerdown', () => { this.scene.restart(); });
+        }
+    }
+
+    const config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        backgroundColor: '#1a1a1a',
+        parent: document.body,
+        physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
+        scene: MainScene
+    };
+
+    new Phaser.Game(config);
+};
+</script>
+</body>
+</html>
