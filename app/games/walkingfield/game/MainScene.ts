@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import { EventBus } from './EventBus';
-import { TILE_SIZE, CHUNK_SIZE, VIEW_DISTANCE, TileData, Inventory } from './types';
+import { TILE_SIZE, CHUNK_SIZE, VIEW_DISTANCE, TileData, InventorySlot } from './types';
 import { initDB, loadChunkData, saveChunkData, loadPlayerData, savePlayerData } from './db';
 
 export class MainScene extends Phaser.Scene {
@@ -98,7 +98,7 @@ export class MainScene extends Phaser.Scene {
     this.lightLayer.setScrollFactor(0);
     this.lightLayer.setAlpha(0); // Day is bright
 
-    this.lightMaskGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+    this.lightMaskGraphics = this.make.graphics({ x: 0, y: 0 });
     this.miningProgressBar = this.add.graphics().setDepth(300);
 
     // Handle Resize for Lighting
