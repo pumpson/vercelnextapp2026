@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PlusCircle, List, Settings as SettingsIcon } from 'lucide-react';
+import { PlusCircle, List, Settings as SettingsIcon, Home } from 'lucide-react';
+import Link from 'next/link';
 import InputForm from './components/InputForm';
 import ProductList from './components/ProductList';
 import Settings from './components/Settings';
@@ -11,8 +12,12 @@ export default function PriceTrackerPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-center">底値比較PWA</h1>
+      <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 flex items-center justify-between">
+        <Link href="/" className="p-2 hover:bg-blue-700 rounded-full transition-colors">
+          <Home size={24} />
+        </Link>
+        <h1 className="text-xl font-bold">底値比較PWA</h1>
+        <div className="w-10" /> {/* Spacer for centering */}
       </header>
 
       <main className="container mx-auto max-w-md p-4">

@@ -39,6 +39,12 @@ export default function RootLayout({
               <Link href="/price-tracker" className="text-blue-400 hover:text-blue-300 flex-shrink-0 font-bold">
                 Price Tracker (PWA)
               </Link>
+              <Link href="/three-good-things" className="text-orange-400 hover:text-orange-300 flex-shrink-0 font-bold">
+                3 Good Things
+              </Link>
+              <Link href="/games/walkingfield" className="text-green-400 hover:text-green-300 flex-shrink-0 font-bold">
+                WalkingField
+              </Link>
               <Link href="/todoapp" className="hover:text-gray-300 flex-shrink-0">
                 TODO
               </Link>
