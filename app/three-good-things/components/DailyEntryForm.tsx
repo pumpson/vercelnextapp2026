@@ -7,21 +7,38 @@ import { v4 as uuidv4 } from 'uuid';
 import { Save, CheckCircle } from 'lucide-react';
 
 interface DailyEntryFormProps {
-  onSuccess?: () => void;
+  onSuccess?: () => void; // 保存成功時に呼び出されるコールバック
 }
 
+/**
+ * DailyEntryForm コンポーネント
+ * その日の「良いこと」を入力・保存するためのフォームです。
+ */
 export default function DailyEntryForm({ onSuccess }: DailyEntryFormProps) {
+  // 今日の日付を 'YYYY-MM-DD' 形式で取得
   const today = new Date().toISOString().split('T')[0];
+  
+  // 入力フィールドのステート
   const [thing1, setThing1] = useState('');
   const [thing2, setThing2] = useState('');
   const [thing3, setThing3] = useState('');
+  
+  // 保存完了時のフィードバック用ステート
   const [isSaved, setIsSaved] = useState(false);
 
+  /**
+   * 既存データの取得
+   * useLiveQuery を使用して、IndexedDB から今日の日付のレコードをリアルタイムで取得します。
+   */
   const existingEntry = useLiveQuery(
     () => db.entries.where('date').equals(today).first(),
     [today]
   );
 
+  /**
+   * 初期値のセット
+   * 既存データが見つかった場合、入力フィールドに値をセットします。
+   */
   useEffect(() => {
     if (existingEntry) {
       setThing1(existingEntry.thing1);
@@ -30,9 +47,14 @@ export default function DailyEntryForm({ onSuccess }: DailyEntryFormProps) {
     }
   }, [existingEntry]);
 
+  /**
+   * 保存処理
+   * 既存データがあれば更新(update)、なければ新規作成(add)を行います。
+   */
   const handleSave = async () => {
     const now = Date.now();
     if (existingEntry) {
+      // 既存データの更新
       await db.entries.update(existingEntry.id, {
         thing1,
         thing2,
@@ -40,8 +62,9 @@ export default function DailyEntryForm({ onSuccess }: DailyEntryFormProps) {
         updatedAt: now,
       });
     } else {
+      // 新規データの作成
       const newEntry: DailyEntry = {
-        id: uuidv4(),
+        id: uuidv4(), // 新しいUUIDを生成
         date: today,
         thing1,
         thing2,
@@ -51,8 +74,11 @@ export default function DailyEntryForm({ onSuccess }: DailyEntryFormProps) {
       };
       await db.entries.add(newEntry);
     }
+    
+    // 保存完了のフィードバック
     setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    setTimeout(() => setIsSaved(false), 3000); // 3秒後に元の表示に戻す
+    
     if (onSuccess) onSuccess();
   };
 
@@ -63,6 +89,7 @@ export default function DailyEntryForm({ onSuccess }: DailyEntryFormProps) {
       </h2>
       <p className="text-sm text-gray-500 mb-6">{today} の記録</p>
 
+      {/* 3つの入力エリア */}
       <div className="space-y-4">
         {[
           { id: 1, value: thing1, setter: setThing1 },
@@ -83,9 +110,10 @@ export default function DailyEntryForm({ onSuccess }: DailyEntryFormProps) {
         ))}
       </div>
 
+      {/* 保存ボタン */}
       <button
         onClick={handleSave}
-        disabled={!thing1 && !thing2 && !thing3}
+        disabled={!thing1 && !thing2 && !thing3} // 何も入力されていない時は無効化
         className={`w-full mt-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
           isSaved
             ? 'bg-green-500 text-white'
