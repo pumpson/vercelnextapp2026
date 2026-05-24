@@ -25,6 +25,12 @@ export default function Home() {
           <h2 className="text-2xl font-bold mb-2 group-hover:text-orange-400 transition-colors">Three Good Things</h2>
           <p className="text-gray-400">毎日の「3つの良いこと」を記録して、ポジティブな毎日を送りましょう。</p>
         </Link>
+
+        <Link href="/expense-tracker" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-indigo-500 transition-all hover:scale-105 shadow-xl">
+          <div className="text-4xl mb-4">💰</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-indigo-400 transition-colors">Expense Tracker</h2>
+          <p className="text-gray-400">Next.jsの機能を総合的に学ぶための家計簿・支出管理ダッシュボード。</p>
+        </Link>
       </div>
 
       <footer className="mt-16 text-gray-500 text-sm">
