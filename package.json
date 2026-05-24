@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
+    "date-fns": "^4.3.0",
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
+    "dompurify": "^3.4.5",
     "lucide-react": "^0.562.0",
+    "marked": "^18.0.4",
     "mysql2": "^3.9.7",
     "next": "^16.1.1",
     "phaser": "^3.90.0",
@@ -23,15 +26,23 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/dompurify": "^3.0.5",
+    "@types/marked": "^5.0.2",
     "@types/node": "^20.17.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.182.0",
+    "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.4.23",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.1.1",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.7"
   }
 }
