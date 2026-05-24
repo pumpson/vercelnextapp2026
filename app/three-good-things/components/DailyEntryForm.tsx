@@ -104,7 +104,7 @@ export default function DailyEntryForm({ onSuccess }: DailyEntryFormProps) {
               value={item.value}
               onChange={(e) => item.setter(e.target.value)}
               placeholder="何がありましたか？"
-              className="w-full p-4 pt-5 border border-orange-100 rounded-xl focus:ring-2 focus:ring-orange-200 focus:border-orange-300 outline-none transition-all resize-none min-h-[80px]"
+              className="w-full p-4 pt-5 border border-orange-100 rounded-xl focus:ring-2 focus:ring-orange-200 focus:border-orange-300 outline-none transition-all resize-none min-h-[80px] text-gray-900 placeholder:text-gray-400"
             />
           </div>
         ))}
