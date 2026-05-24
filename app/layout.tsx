@@ -45,6 +45,15 @@ export default function RootLayout({
               <Link href="/games/walkingfield" className="text-green-400 hover:text-green-300 flex-shrink-0 font-bold">
                 WalkingField
               </Link>
+              <Link href="/todo-pomodoro" className="hover:text-indigo-400 flex-shrink-0 font-bold">
+                Todo & Pomodoro
+              </Link>
+              <Link href="/markdown-memo" className="hover:text-pink-400 flex-shrink-0 font-bold">
+                Markdown Memo
+              </Link>
+              <Link href="/habit-tracker" className="hover:text-yellow-400 flex-shrink-0 font-bold">
+                Habit Tracker
+              </Link>
               <Link href="/todoapp" className="hover:text-gray-300 flex-shrink-0">
                 TODO
               </Link>
