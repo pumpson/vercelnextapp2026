@@ -164,7 +164,7 @@ export function Canvas({
       let reachRight = false;
 
       // 下方向へ進みながら色を塗る
-      while (y++ < height - 1 && matchStartColor(pixelPos)) {
+      while (y++ < height && matchStartColor(pixelPos)) {
         colorPixel(pixelPos);
 
         // 左側をチェック
