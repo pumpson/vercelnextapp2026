@@ -63,7 +63,10 @@
   - **Crafting World**: 橋や看板を設置しながら進むサバイバルクラフトゲーム（Phaser3実装）。
   - **Traffic Simulator**: 車の量や速度を調整し、渋滞の発生を観察するシミュレーター（Phaser3実装）。
   - **Neon Shooting**: 縦スクロールのネオン風シューティングゲーム（Phaser3実装）。
-* **技術的特徴**: Phaser3 を使用するゲームは `next/dynamic` を活用してSSRを無効化し、Next.js (React) コンポーネントとしてシームレスに統合されている。
+  - **Fishing Master**: 昼・夕方・夜で釣れる魚が変わるシンプルな釣りゲーム（React/TSX実装）。
+  - **Geo Collector**: Leafletと位置情報APIを活用し、マップ上に配置されるオブジェを収集・育成する位置情報ゲーム（React/TSX実装）。
+  - **Auto Tactics**: 部隊のクラスと陣形を選択し、フルオートで進行するSRPG風シミュレーションゲーム（React/TSX実装）。
+* **技術的特徴**: Phaser3 や Leaflet を使用するゲームは `next/dynamic` を活用してSSRを無効化し、Next.js (React) コンポーネントとしてシームレスに統合されている。
 
 ## 3. 開発要件
 * コードには、後から見返しても分かりやすいように冗長でも丁寧な日本語コメントを付与する。
