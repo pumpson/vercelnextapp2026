@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { ArrowLeft, Play, RefreshCw, Hand, ShieldAlert, Swords } from 'lucide-react';
 
 // === Types ===
-type JobId = 'fighter' | 'mage' | 'archer' | 'knight' | 'cleric';
+type JobId = 'fighter' | 'mage' | 'archer' | 'knight' | 'cleric' | 'assassin' | 'cavalry' | 'droid';
 type FormationType = 'vanguard' | 'rear' | 'scatter';
 type StatType = 'hp' | 'atk' | 'def' | 'res' | 'spd';
 
 interface Job {
     id: JobId; name: string; emoji: string;
-    hp: number; atk: number; def: number; res: number; spd: number; mov: number; rng: number;
+    hp: number; atk: number; def: number; res: number; spd: number; mov: number;
+    rangeMods: number[]; // 距離1, 2, 3, 4, 5 に対応する威力補正（0〜10）
     color: string; desc: string;
 }
 
@@ -42,19 +43,31 @@ interface Unit {
         critRate: number; // 必殺率(%)
     };
     build?: UnitBuild; // プレイヤーユニットのみ保持
+    ct: number; // チャージタイム（0になると行動）
+    droidState?: number; // ドロイド専用：現在の行動パターン(0=特殊銃, 1=魔法, 2=近接)
 }
 
 // === Constants ===
-const ROWS = 6;
-const COLS = 7;
+const ROWS = 9;
+const COLS = 11;
 const SLEEP_MS = 600;
 
+// ダメージ補正配列（index 0 が 距離1。0=攻撃不可, 10=100%）
+const MOD_MELEE = [10, 0, 0, 0, 0, 0, 0];
+const MOD_BOW   = [2, 10, 3, 0, 0, 0, 0];
+const MOD_MAGIC = [1, 3, 10, 0, 0, 0, 0];
+const MOD_GUN   = [2, 2, 2, 10, 3, 0, 0];
+const MOD_HEAL  = [0, 10, 5, 0, 0, 0, 0]; // 僧侶用
+
 const JOBS: Record<JobId, Job> = {
-    fighter: { id: 'fighter', name: '戦士', emoji: '⚔️', hp: 30, atk: 12, def: 8, res: 3, spd: 7, mov: 3, rng: 1, color: 'bg-red-500', desc: '近接物理。バランスが良い。' },
-    mage:    { id: 'mage', name: '魔道士', emoji: '🔥', hp: 20, atk: 14, def: 3, res: 10, spd: 8, mov: 2, rng: 2, color: 'bg-purple-500', desc: '遠距離魔法。防御は低い。' },
-    archer:  { id: 'archer', name: '弓兵', emoji: '🏹', hp: 22, atk: 10, def: 5, res: 4, spd: 9, mov: 2, rng: 2, color: 'bg-green-500', desc: '遠距離物理。魔道士に強い。' },
-    knight:  { id: 'knight', name: '重騎士', emoji: '🛡️', hp: 40, atk: 10, def: 15, res: 1, spd: 2, mov: 2, rng: 1, color: 'bg-blue-500', desc: '高HP・高防御の壁役。魔法に弱い。' },
-    cleric:  { id: 'cleric', name: '僧侶', emoji: '✨', hp: 24, atk: 8, def: 4, res: 12, spd: 6, mov: 2, rng: 2, color: 'bg-yellow-400', desc: '味方のHPを回復する(AIのみ)。' }
+    fighter: { id: 'fighter', name: '戦士', emoji: '⚔️', hp: 40, atk: 12, def: 8, res: 3, spd: 10, mov: 3, rangeMods: MOD_MELEE, color: 'bg-red-500', desc: '近接。すべての基準。' },
+    knight:  { id: 'knight', name: '重騎士', emoji: '🛡️', hp: 60, atk: 10, def: 18, res: 6, spd: 5, mov: 2, rangeMods: MOD_MELEE, color: 'bg-blue-500', desc: '高耐久。非常に遅い。' },
+    assassin:{ id: 'assassin', name: '暗殺者', emoji: '🗡️', hp: 25, atk: 14, def: 3, res: 2, spd: 18, mov: 4, rangeMods: MOD_MELEE, color: 'bg-slate-700', desc: '手数が多く機動力に優れるが脆い。' },
+    archer:  { id: 'archer', name: '弓兵', emoji: '🏹', hp: 30, atk: 10, def: 4, res: 5, spd: 12, mov: 3, rangeMods: MOD_BOW, color: 'bg-green-500', desc: '中距離適正。やや速い。' },
+    mage:    { id: 'mage', name: '魔道士', emoji: '🔥', hp: 22, atk: 15, def: 2, res: 12, spd: 6, mov: 2, rangeMods: MOD_MAGIC, color: 'bg-purple-500', desc: '遠距離適正。脆くて遅い。' },
+    cleric:  { id: 'cleric', name: '僧侶', emoji: '✨', hp: 28, atk: 8, def: 4, res: 12, spd: 9, mov: 2, rangeMods: MOD_HEAL, color: 'bg-yellow-400', desc: '味方のHPを回復する(AIのみ)。' },
+    cavalry: { id: 'cavalry', name: '騎兵', emoji: '🐎', hp: 45, atk: 13, def: 10, res: 5, spd: 11, mov: 5, rangeMods: MOD_MELEE, color: 'bg-orange-600', desc: '【敵専用】非常に高い機動力を持つ。' },
+    droid:   { id: 'droid', name: 'ドロイド', emoji: '🤖', hp: 80, atk: 16, def: 12, res: 10, spd: 7, mov: 2, rangeMods: MOD_MELEE, color: 'bg-zinc-500', desc: '【敵専用】特殊なAIで3種の攻撃を切り替える。' }
 };
 
 const WEAPONS: Weapon[] = [
@@ -72,9 +85,10 @@ const SKILLS: Skill[] = [
 ];
 
 const ENEMY_PATTERNS = [
-    [{job:'fighter', x:1, y:0}, {job:'fighter', x:3, y:0}, {job:'fighter', x:5, y:0}, {job:'mage', x:2, y:1}, {job:'archer', x:4, y:1}],
-    [{job:'knight', x:2, y:0}, {job:'knight', x:4, y:0}, {job:'mage', x:3, y:1}, {job:'cleric', x:3, y:2}],
-    [{job:'archer', x:1, y:0}, {job:'archer', x:3, y:0}, {job:'archer', x:5, y:0}, {job:'fighter', x:3, y:1}]
+    [{job:'fighter', x:3, y:0}, {job:'fighter', x:7, y:0}, {job:'mage', x:5, y:1}, {job:'archer', x:2, y:1}, {job:'archer', x:8, y:1}],
+    [{job:'knight', x:4, y:0}, {job:'knight', x:6, y:0}, {job:'mage', x:5, y:1}, {job:'cleric', x:5, y:2}, {job:'cavalry', x:1, y:1}, {job:'cavalry', x:9, y:1}],
+    [{job:'assassin', x:2, y:0}, {job:'assassin', x:8, y:0}, {job:'archer', x:4, y:0}, {job:'archer', x:6, y:0}, {job:'fighter', x:5, y:1}],
+    [{job:'knight', x:3, y:0}, {job:'knight', x:7, y:0}, {job:'droid', x:5, y:1}, {job:'cleric', x:4, y:2}, {job:'cleric', x:6, y:2}],
 ];
 
 // === Helper ===
@@ -182,18 +196,18 @@ export default function FETacticsGame() {
             return {
                 id: `p_${Math.random()}`, isPlayer: isP, x: dx, y: dy, startX: dx, startY: dy,
                 job: jobBase, hp: fStats.hp, maxHp: fStats.hp, isDead: false,
-                finalStats: fStats, build: build
+                finalStats: fStats, build: build, ct: 0
             };
         };
 
-        if (form === 'vanguard') { // 前衛集中 (y=4,5)
-            const coords = [[2,4], [3,4], [4,4], [3,5], [2,5], [4,5]];
+        if (form === 'vanguard') { // 前衛集中 (y=6,7)
+            const coords = [[4,6], [5,6], [6,6], [5,7], [4,7], [6,7]];
             roster.forEach((job, i) => { if(i < coords.length) pUnits.push(createU(job, builds[i], coords[i][0], coords[i][1], true)); });
-        } else if (form === 'rear') { // 後衛集中 (y=5)
-            const coords = [[1,5], [2,5], [3,5], [4,5], [5,5], [3,4]];
+        } else if (form === 'rear') { // 後衛集中 (y=7,8)
+            const coords = [[3,8], [5,8], [7,8], [4,7], [6,7], [5,7]];
             roster.forEach((job, i) => { if(i < coords.length) pUnits.push(createU(job, builds[i], coords[i][0], coords[i][1], true)); });
         } else if (form === 'scatter') { // 分散
-            const coords = [[1,4], [3,4], [5,4], [2,5], [4,5], [0,5]];
+            const coords = [[2,7], [5,6], [8,7], [4,8], [6,8], [0,8]];
             roster.forEach((job, i) => { if(i < coords.length) pUnits.push(createU(job, builds[i], coords[i][0], coords[i][1], true)); });
         }
         return pUnits;
@@ -212,7 +226,7 @@ export default function FETacticsGame() {
             eUnits.push({
                 id: `e_${i}`, isPlayer: false, x: e.x, y: e.y, startX: e.x, startY: e.y,
                 job: jobBase, hp: fStats.hp, maxHp: fStats.hp, isDead: false,
-                finalStats: fStats
+                finalStats: fStats, ct: 0, droidState: jobBase.id === 'droid' ? 0 : undefined
             });
         });
 
@@ -339,17 +353,23 @@ export default function FETacticsGame() {
 
                 for (let pos of area) {
                     let d = getDistance(pos.x, pos.y, target.x, target.y);
-                    if (d <= u.job.rng && d < minTDist) {
+                    // 僧侶の回復射程は MOD_HEAL に基づく。威力が0より大きいなら届く。
+                    let modIdx = d - 1;
+                    if (modIdx >= 0 && modIdx < MOD_HEAL.length && MOD_HEAL[modIdx] > 0 && d < minTDist) {
                         minTDist = d; bestMove = pos;
                     }
                 }
 
-                if (minTDist <= u.job.rng) {
-                    updateUnit(u.id, {x: bestMove.x, y: bestMove.y});
-                    addLog(`${u.job.name} は移動した。`);
-                    await sleep(SLEEP_MS);
+                let finalModIdx = minTDist - 1;
+                if (finalModIdx >= 0 && finalModIdx < MOD_HEAL.length && MOD_HEAL[finalModIdx] > 0) {
+                    if (bestMove.x !== u.x || bestMove.y !== u.y) {
+                        updateUnit(u.id, {x: bestMove.x, y: bestMove.y});
+                        addLog(`${u.job.name} は移動した。`);
+                        await sleep(SLEEP_MS);
+                    }
 
-                    let heal = u.job.atk + Math.floor(Math.random()*3);
+                    let healMod = MOD_HEAL[finalModIdx] / 10;
+                    let heal = Math.floor((u.job.atk + Math.floor(Math.random()*3)) * healMod);
                     let newHp = Math.min(target.maxHp, target.hp + heal);
                     updateUnit(target.id, { hp: newHp });
                     showEffect(target, `+${heal}`, 'text-green-400');
@@ -361,28 +381,62 @@ export default function FETacticsGame() {
             }
         }
 
-        // Attack Logic
-        let target = enemies.sort((a,b) => getDistance(u!.x, u!.y, a.x, a.y) - getDistance(u!.x, u!.y, b.x, b.y))[0];
-        let area = getMoveArea(u, curUnits);
-        let bestMove = {x: u.x, y: u.y};
-        let minTDist = Infinity;
+        // Helper: get damage multiplier for a given distance
+        const getDamageMod = (unit: Unit, dist: number) => {
+            let mods = unit.job.rangeMods;
 
-        // Try to attack
+            // ドロイドの特殊処理：状態に応じて使う武器（レンジ補正）が変わる
+            if (unit.job.id === 'droid') {
+                const state = unit.droidState || 0;
+                if (state === 0) mods = MOD_GUN;
+                else if (state === 1) mods = MOD_MAGIC;
+                else mods = MOD_MELEE;
+            }
+
+            const idx = dist - 1;
+            if (idx < 0 || idx >= mods.length) return 0;
+            return mods[idx] / 10; // 10 means 1.0
+        };
+
+        // Attack Logic
+        // Find best target and move combination that yields highest expected damage modifier
+        let target = enemies.sort((a,b) => getDistance(u!.x, u!.y, a.x, a.y) - getDistance(u!.x, u!.y, b.x, b.y))[0]; // fallback closest
+        let area = getMoveArea(u, curUnits);
+
+        let bestMove = {x: u.x, y: u.y};
+        let bestTarget = target;
+        let maxExpectedMod = -1;
+        let minTDistToAny = Infinity;
+
         for (let pos of area) {
-            let d = getDistance(pos.x, pos.y, target.x, target.y);
-            if (d <= u.job.rng && d < minTDist) {
-                minTDist = d; bestMove = pos;
+            for (let en of enemies) {
+                let d = getDistance(pos.x, pos.y, en.x, en.y);
+                if (d < minTDistToAny) { minTDistToAny = d; target = en; } // for moving closer fallback
+
+                let mod = getDamageMod(u, d);
+                if (mod > maxExpectedMod) {
+                    maxExpectedMod = mod;
+                    bestMove = pos;
+                    bestTarget = en;
+                } else if (mod === maxExpectedMod && mod > 0) {
+                    // Tie-breaker: distance to target (closer might be better for body blocking, but arbitrary)
+                    let d1 = getDistance(pos.x, pos.y, bestTarget.x, bestTarget.y);
+                    if (d < d1) { bestMove = pos; bestTarget = en; }
+                }
             }
         }
 
-        // Move closer if cannot attack
-        if (minTDist > u.job.rng) {
+        // Move closer if no attack is possible (mod == 0)
+        if (maxExpectedMod <= 0) {
+            let closestDist = Infinity;
             for (let pos of area) {
                 let d = getDistance(pos.x, pos.y, target.x, target.y);
-                if (d < minTDist) {
-                    minTDist = d; bestMove = pos;
+                if (d < closestDist) {
+                    closestDist = d; bestMove = pos;
                 }
             }
+        } else {
+            target = bestTarget;
         }
 
         if (bestMove.x !== u.x || bestMove.y !== u.y) {
@@ -393,42 +447,59 @@ export default function FETacticsGame() {
         }
 
         let distToTarget = getDistance(u.x, u.y, target.x, target.y);
-        if (distToTarget <= u.job.rng) {
-            // Combat calculation (using finalStats)
-            let isMagic = u.job.id === 'mage' || u.job.id === 'cleric';
+        let currentMod = getDamageMod(u, distToTarget);
+
+        if (currentMod > 0) {
+            // Combat calculation (using finalStats and distance mod)
+            let isMagic = u.job.id === 'mage' || u.job.id === 'cleric' || (u.job.id === 'droid' && u.droidState === 1);
             let defStat = isMagic ? target.finalStats.res : target.finalStats.def;
 
             // Critical Hit check
             let isCrit = Math.random() * 100 < u.finalStats.critRate;
             if (isCrit) {
-                // 必殺発動時は相手の防御・魔防を7割減（0.3倍）で計算
                 defStat = Math.floor(defStat * 0.3);
             }
 
-            let dmg = Math.max(0, u.finalStats.atk - defStat) + Math.floor(Math.random()*3);
+            let baseDmg = Math.max(0, u.finalStats.atk - defStat) + Math.floor(Math.random()*3);
+            let dmg = Math.floor(baseDmg * currentMod);
 
             // Job advantage
             if (u.job.id === 'archer' && target.job.id === 'mage') dmg = Math.floor(dmg * 1.5);
             if (u.job.id === 'mage' && target.job.id === 'knight') dmg = Math.floor(dmg * 1.5);
+            if (u.job.id === 'assassin' && target.job.id === 'mage') dmg = Math.floor(dmg * 1.5);
 
             if (dmg <= 0) dmg = 1;
 
             let newHp = target.hp - dmg;
             let died = newHp <= 0;
 
+            // ドロイドの攻撃パターン名
+            let attackName = "の攻撃";
+            if (u.job.id === 'droid') {
+                if (u.droidState === 0) attackName = "の特殊銃撃";
+                if (u.droidState === 1) attackName = "の魔法攻撃";
+                if (u.droidState === 2) attackName = "の近接攻撃";
+            }
+
             updateUnit(target.id, { hp: died ? 0 : newHp, isDead: died });
 
             if (isCrit) {
                 showEffect(target, `CRITICAL! -${dmg}`, 'text-yellow-400 font-black text-2xl');
-                addLog(`🔥 必殺の一撃！ ${u.job.name} が ${target.job.name} に ${dmg} ダメージ！`, true);
+                addLog(`🔥 必殺の一撃！ ${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`, true);
             } else {
                 showEffect(target, `-${dmg}`, 'text-red-400 font-bold text-xl');
-                addLog(`${u.job.name} の攻撃！ ${target.job.name} に ${dmg} ダメージ！`);
+                addLog(`${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`);
             }
 
             if (died) {
                 addLog(`☠️ ${target.job.name} は倒れた！`);
             }
+
+            // ドロイドは攻撃に成功した場合のみ状態を遷移させる
+            if (u.job.id === 'droid') {
+                updateUnit(u.id, { droidState: ((u.droidState || 0) + 1) % 3 });
+            }
+
             await sleep(SLEEP_MS);
         }
 
@@ -441,45 +512,74 @@ export default function FETacticsGame() {
         isPlayingRef.current = true;
 
         while (isPlayingRef.current) {
-            let activeUnits = unitsRef.current.filter(u => !u.isDead);
+            let curUnits = unitsRef.current.filter(u => !u.isDead);
 
-            // ターン開始時スキル処理（自己再生など）
-            for (let u of activeUnits) {
-                if (u.build?.skillId === 'regen' && u.hp < u.maxHp) {
-                    let heal = 5;
-                    let newHp = Math.min(u.maxHp, u.hp + heal);
-                    updateUnit(u.id, { hp: newHp });
-                    showEffect(u, `+${heal}`, 'text-green-400');
-                    addLog(`🌿 自己再生: ${u.job.name} が ${heal} 回復！`);
-                    await sleep(300);
+            // 時間進行（全員のCTを素早さ分だけ減らす）
+            let minCtUnit: Unit | null = null;
+            let minCt = Infinity;
+
+            for (let u of curUnits) {
+                if (u.ct < minCt) {
+                    minCt = u.ct;
+                    minCtUnit = u;
                 }
             }
 
-            // Sort by Speed (Final Speed)
-            activeUnits.sort((a,b) => b.finalStats.spd - a.finalStats.spd);
+            // 誰も行動可能(CT<=0)でないなら時間を進める
+            if (minCt > 0) {
+                const tick = 1; // tick幅
+                const updatedUnits = curUnits.map(u => ({ ...u, ct: u.ct - (u.finalStats.spd * tick) }));
+                setUnits(prev => prev.map(p => {
+                    const match = updatedUnits.find(u => u.id === p.id);
+                    return match ? { ...p, ct: match.ct } : p;
+                }));
+                unitsRef.current = unitsRef.current.map(p => {
+                    const match = updatedUnits.find(u => u.id === p.id);
+                    return match ? { ...p, ct: match.ct } : p;
+                });
+                await sleep(50); // 描画待ち
+                continue;
+            }
 
-            for (let unit of activeUnits) {
-                if (!isPlayingRef.current) break;
-                await executeAITurn(unit.id);
-                await sleep(100); // tiny buffer
+            // CT<=0 になったユニットが行動する（複数いる場合は素早さ順にしたいが、まずは見つかった順）
+            let actingUnit = curUnits.find(u => u.ct <= 0);
+            if (!actingUnit) continue;
 
-                let cur = unitsRef.current;
-                let pAlive = cur.filter(x => x.isPlayer && !x.isDead).length;
-                let eAlive = cur.filter(x => !x.isPlayer && !x.isDead).length;
+            // 行動前スキル処理（ターン開始として扱う）
+            if (actingUnit.build?.skillId === 'regen' && actingUnit.hp < actingUnit.maxHp) {
+                let heal = 5;
+                let newHp = Math.min(actingUnit.maxHp, actingUnit.hp + heal);
+                updateUnit(actingUnit.id, { hp: newHp });
+                showEffect(actingUnit, `+${heal}`, 'text-green-400');
+                addLog(`🌿 自己再生: ${actingUnit.job.name} が ${heal} 回復！`);
+                await sleep(300);
+            }
 
-                if (pAlive === 0 || eAlive === 0) {
-                    isPlayingRef.current = false;
-                    setIsPlaying(false);
-                    if (pAlive === 0) {
-                        addLog('>>> 敗北...部隊は全滅した。', true);
-                    } else {
-                        addLog('>>> 勝利！敵を殲滅した！', true);
-                        await sleep(1000);
-                        setStage(s => s + 1);
-                        initStage(stage + 1);
-                    }
-                    break;
+            if (!isPlayingRef.current) break;
+
+            await executeAITurn(actingUnit.id);
+
+            // 行動終了後、CTをリセット（ディレイ発生）
+            updateUnit(actingUnit.id, { ct: 1000 }); // 基準値1000から素早さ分減っていく
+
+            await sleep(100); // tiny buffer
+
+            let cur = unitsRef.current;
+            let pAlive = cur.filter(x => x.isPlayer && !x.isDead).length;
+            let eAlive = cur.filter(x => !x.isPlayer && !x.isDead).length;
+
+            if (pAlive === 0 || eAlive === 0) {
+                isPlayingRef.current = false;
+                setIsPlaying(false);
+                if (pAlive === 0) {
+                    addLog('>>> 敗北...部隊は全滅した。', true);
+                } else {
+                    addLog('>>> 勝利！敵を殲滅した！', true);
+                    await sleep(1000);
+                    setStage(s => s + 1);
+                    initStage(stage + 1);
                 }
+                break;
             }
         }
     };
