@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Play, RefreshCw, Hand, ShieldAlert, Swords } from 'lucide-react';
+import { ArrowLeft, Play, RefreshCw, Hand, ShieldAlert, Swords, HelpCircle, X } from 'lucide-react';
 
 // === Types ===
 type JobId = 'fighter' | 'mage' | 'archer' | 'knight' | 'cleric' | 'assassin' | 'cavalry' | 'droid';
@@ -60,14 +60,14 @@ const MOD_GUN   = [2, 2, 2, 10, 3, 0, 0];
 const MOD_HEAL  = [0, 10, 5, 0, 0, 0, 0]; // 僧侶用
 
 const JOBS: Record<JobId, Job> = {
-    fighter: { id: 'fighter', name: '戦士', emoji: '⚔️', hp: 40, atk: 12, def: 8, res: 3, spd: 10, mov: 3, rangeMods: MOD_MELEE, color: 'bg-red-500', desc: '近接。すべての基準。' },
-    knight:  { id: 'knight', name: '重騎士', emoji: '🛡️', hp: 60, atk: 10, def: 18, res: 6, spd: 5, mov: 2, rangeMods: MOD_MELEE, color: 'bg-blue-500', desc: '高耐久。非常に遅い。' },
-    assassin:{ id: 'assassin', name: '暗殺者', emoji: '🗡️', hp: 25, atk: 14, def: 3, res: 2, spd: 18, mov: 4, rangeMods: MOD_MELEE, color: 'bg-slate-700', desc: '手数が多く機動力に優れるが脆い。' },
-    archer:  { id: 'archer', name: '弓兵', emoji: '🏹', hp: 30, atk: 10, def: 4, res: 5, spd: 12, mov: 3, rangeMods: MOD_BOW, color: 'bg-green-500', desc: '中距離適正。やや速い。' },
-    mage:    { id: 'mage', name: '魔道士', emoji: '🔥', hp: 22, atk: 15, def: 2, res: 12, spd: 6, mov: 2, rangeMods: MOD_MAGIC, color: 'bg-purple-500', desc: '遠距離適正。脆くて遅い。' },
-    cleric:  { id: 'cleric', name: '僧侶', emoji: '✨', hp: 28, atk: 8, def: 4, res: 12, spd: 9, mov: 2, rangeMods: MOD_HEAL, color: 'bg-yellow-400', desc: '味方のHPを回復する(AIのみ)。' },
-    cavalry: { id: 'cavalry', name: '騎兵', emoji: '🐎', hp: 45, atk: 13, def: 10, res: 5, spd: 11, mov: 5, rangeMods: MOD_MELEE, color: 'bg-orange-600', desc: '【敵専用】非常に高い機動力を持つ。' },
-    droid:   { id: 'droid', name: 'ドロイド', emoji: '🤖', hp: 80, atk: 16, def: 12, res: 10, spd: 7, mov: 2, rangeMods: MOD_MELEE, color: 'bg-zinc-500', desc: '【敵専用】特殊なAIで3種の攻撃を切り替える。' }
+    fighter: { id: 'fighter', name: '戦士', emoji: '⚔️', hp: 40, atk: 20, def: 8, res: 3, spd: 10, mov: 3, rangeMods: MOD_MELEE, color: 'bg-red-500', desc: '近接。すべての基準。' },
+    knight:  { id: 'knight', name: '重騎士', emoji: '🛡️', hp: 60, atk: 18, def: 18, res: 6, spd: 5, mov: 2, rangeMods: MOD_MELEE, color: 'bg-blue-500', desc: '高耐久。非常に遅い。' },
+    assassin:{ id: 'assassin', name: '暗殺者', emoji: '🗡️', hp: 25, atk: 22, def: 3, res: 2, spd: 18, mov: 4, rangeMods: MOD_MELEE, color: 'bg-slate-700', desc: '手数が多く機動力に優れるが脆い。' },
+    archer:  { id: 'archer', name: '弓兵', emoji: '🏹', hp: 30, atk: 18, def: 4, res: 5, spd: 12, mov: 3, rangeMods: MOD_BOW, color: 'bg-green-500', desc: '中距離適正。やや速い。' },
+    mage:    { id: 'mage', name: '魔道士', emoji: '🔥', hp: 22, atk: 23, def: 2, res: 12, spd: 6, mov: 2, rangeMods: MOD_MAGIC, color: 'bg-purple-500', desc: '遠距離適正。脆くて遅い。' },
+    cleric:  { id: 'cleric', name: '僧侶', emoji: '✨', hp: 28, atk: 16, def: 4, res: 12, spd: 9, mov: 2, rangeMods: MOD_HEAL, color: 'bg-yellow-400', desc: '味方のHPを回復する(AIのみ)。' },
+    cavalry: { id: 'cavalry', name: '騎兵', emoji: '🐎', hp: 45, atk: 21, def: 10, res: 5, spd: 11, mov: 5, rangeMods: MOD_MELEE, color: 'bg-orange-600', desc: '【敵専用】非常に高い機動力を持つ。' },
+    droid:   { id: 'droid', name: 'ドロイド', emoji: '🤖', hp: 80, atk: 24, def: 12, res: 10, spd: 7, mov: 2, rangeMods: MOD_MELEE, color: 'bg-zinc-500', desc: '【敵専用】特殊なAIで3種の攻撃を切り替える。' }
 };
 
 const WEAPONS: Weapon[] = [
@@ -82,6 +82,10 @@ const SKILLS: Skill[] = [
     { id: 'regen', name: '自己再生', cost: 10, desc: '自ターン開始時、HPが少し回復する' },
     { id: 'bulwark', name: '鉄壁', cost: 15, desc: '防御・魔防+5、速度-3' },
     { id: 'deathblow', name: '必殺覚醒', cost: 12, desc: '必殺率+15%' },
+    { id: 'mov_up', name: '機動強化', cost: 15, desc: '移動力(MOV)+1' },
+    { id: 'drain', name: '吸血', cost: 12, desc: '攻撃時、30%の確率で与えたダメージの半分を回復' },
+    { id: 'double_attack', name: '追撃', cost: 18, desc: '攻撃時、20%の確率で連続攻撃を行う' },
+    { id: 'berserk_crit', name: '捨て身の必殺', cost: 15, desc: '必殺時ダメージ1.5倍・防御7割無視になるが、自身の最大HP20%の反動ダメージ' },
 ];
 
 const ENEMY_PATTERNS = [
@@ -118,6 +122,7 @@ export default function FETacticsGame() {
 
     // UI State for Setup
     const [editingUnitIdx, setEditingUnitIdx] = useState<number>(0);
+    const [showHelp, setShowHelp] = useState(false);
 
     const logsEndRef = useRef<HTMLDivElement>(null);
     const isPlayingRef = useRef(false); // Ref to break loops safely
@@ -166,11 +171,12 @@ export default function FETacticsGame() {
                 def: job.def + Math.floor(enemyBuff/2),
                 res: job.res + Math.floor(enemyBuff/2),
                 spd: job.spd + Math.floor(enemyBuff/2),
+                mov: job.mov,
                 critRate: 5
             };
         }
 
-        if (!build) return { hp: job.hp, atk: job.atk, def: job.def, res: job.res, spd: job.spd, critRate: 5 };
+        if (!build) return { hp: job.hp, atk: job.atk, def: job.def, res: job.res, spd: job.spd, mov: job.mov, critRate: 5 };
 
         const weapon = WEAPONS.find(w => w.id === build.weaponId)!;
         const skill = SKILLS.find(s => s.id === build.skillId)!;
@@ -180,12 +186,14 @@ export default function FETacticsGame() {
         let fDef = job.def + build.addedStats.def;
         let fRes = job.res + build.addedStats.res;
         let fSpd = job.spd + build.addedStats.spd;
+        let fMov = job.mov;
         let fCrit = 5 + weapon.critBonus;
 
         if (skill.id === 'bulwark') { fDef += 5; fRes += 5; fSpd -= 3; }
         if (skill.id === 'deathblow') { fCrit += 15; }
+        if (skill.id === 'mov_up') { fMov += 1; }
 
-        return { hp: fHp, atk: fAtk, def: fDef, res: fRes, spd: fSpd, critRate: fCrit };
+        return { hp: fHp, atk: fAtk, def: fDef, res: fRes, spd: fSpd, mov: fMov, critRate: fCrit };
     };
 
     const applyFormation = (roster: JobId[], builds: UnitBuild[], form: FormationType): Unit[] => {
@@ -454,24 +462,8 @@ export default function FETacticsGame() {
             let isMagic = u.job.id === 'mage' || u.job.id === 'cleric' || (u.job.id === 'droid' && u.droidState === 1);
             let defStat = isMagic ? target.finalStats.res : target.finalStats.def;
 
-            // Critical Hit check
-            let isCrit = Math.random() * 100 < u.finalStats.critRate;
-            if (isCrit) {
-                defStat = Math.floor(defStat * 0.3);
-            }
-
-            let baseDmg = Math.max(0, u.finalStats.atk - defStat) + Math.floor(Math.random()*3);
-            let dmg = Math.floor(baseDmg * currentMod);
-
-            // Job advantage
-            if (u.job.id === 'archer' && target.job.id === 'mage') dmg = Math.floor(dmg * 1.5);
-            if (u.job.id === 'mage' && target.job.id === 'knight') dmg = Math.floor(dmg * 1.5);
-            if (u.job.id === 'assassin' && target.job.id === 'mage') dmg = Math.floor(dmg * 1.5);
-
-            if (dmg <= 0) dmg = 1;
-
-            let newHp = target.hp - dmg;
-            let died = newHp <= 0;
+            // Attack loop (handles double attack skill)
+            let attackCount = (u.build?.skillId === 'double_attack' && Math.random() < 0.2) ? 2 : 1;
 
             // ドロイドの攻撃パターン名
             let attackName = "の攻撃";
@@ -481,26 +473,76 @@ export default function FETacticsGame() {
                 if (u.droidState === 2) attackName = "の近接攻撃";
             }
 
-            updateUnit(target.id, { hp: died ? 0 : newHp, isDead: died });
+            for (let i = 0; i < attackCount; i++) {
+                if (target.isDead) break;
 
-            if (isCrit) {
-                showEffect(target, `CRITICAL! -${dmg}`, 'text-yellow-400 font-black text-2xl');
-                addLog(`🔥 必殺の一撃！ ${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`, true);
-            } else {
-                showEffect(target, `-${dmg}`, 'text-red-400 font-bold text-xl');
-                addLog(`${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`);
-            }
+                // Critical Hit check
+                let isCrit = Math.random() * 100 < u.finalStats.critRate;
+                let currentDef = defStat;
+                let isBerserk = isCrit && u.build?.skillId === 'berserk_crit';
 
-            if (died) {
-                addLog(`☠️ ${target.job.name} は倒れた！`);
+                if (isBerserk) {
+                    currentDef = Math.floor(currentDef * 0.3); // berserk: 7割無視
+                } else if (isCrit) {
+                    currentDef = Math.floor(currentDef * 0.7); // 通常: 3割無視
+                }
+
+                let baseDmg = Math.max(0, u.finalStats.atk - currentDef) + Math.floor(Math.random()*3);
+                let dmg = Math.floor(baseDmg * currentMod);
+
+                if (isBerserk) dmg = Math.floor(dmg * 1.5);
+
+                // Job advantage
+                if (u.job.id === 'archer' && target.job.id === 'mage') dmg = Math.floor(dmg * 1.5);
+                if (u.job.id === 'mage' && target.job.id === 'knight') dmg = Math.floor(dmg * 1.5);
+                if (u.job.id === 'assassin' && target.job.id === 'mage') dmg = Math.floor(dmg * 1.5);
+
+                if (dmg <= 0) dmg = 1;
+
+                let newHp = target.hp - dmg;
+                let died = newHp <= 0;
+
+                updateUnit(target.id, { hp: died ? 0 : newHp, isDead: died });
+
+                let prefix = i === 1 ? "【追撃】 " : "";
+
+                if (isCrit) {
+                    showEffect(target, `CRITICAL! -${dmg}`, 'text-yellow-400 font-black text-2xl');
+                    addLog(`${prefix}🔥 必殺の一撃！ ${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`, true);
+
+                    if (isBerserk) {
+                        let recoil = Math.max(1, Math.floor(u.maxHp * 0.2));
+                        let uNewHp = Math.max(1, u.hp - recoil); // 反動では死なない(1残る)
+                        updateUnit(u.id, { hp: uNewHp });
+                        showEffect(u, `-${recoil}`, 'text-red-600 font-bold text-sm');
+                        addLog(`⚠️ 捨て身の反動！ ${u.job.name} は ${recoil} のダメージを受けた。`);
+                    }
+                } else {
+                    showEffect(target, `-${dmg}`, 'text-red-400 font-bold text-xl');
+                    addLog(`${prefix}${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`);
+                }
+
+                // Drain skill
+                if (u.build?.skillId === 'drain' && Math.random() < 0.3) {
+                    let heal = Math.max(1, Math.floor(dmg / 2));
+                    let uNewHp = Math.min(u.maxHp, u.hp + heal);
+                    updateUnit(u.id, { hp: uNewHp });
+                    showEffect(u, `+${heal}`, 'text-green-400 font-bold text-sm');
+                    addLog(`🦇 吸血！ ${u.job.name} は ${heal} 回復した。`);
+                }
+
+                if (died) {
+                    addLog(`☠️ ${target.job.name} は倒れた！`);
+                    target.isDead = true; // loop内での状態更新
+                }
+
+                await sleep(SLEEP_MS);
             }
 
             // ドロイドは攻撃に成功した場合のみ状態を遷移させる
             if (u.job.id === 'droid') {
                 updateUnit(u.id, { droidState: ((u.droidState || 0) + 1) % 3 });
             }
-
-            await sleep(SLEEP_MS);
         }
 
         setActiveUnitId(null);
@@ -557,10 +599,20 @@ export default function FETacticsGame() {
 
             if (!isPlayingRef.current) break;
 
+            // 行動開始前の位置を記録
+            let startX = actingUnit.x;
+            let startY = actingUnit.y;
+
             await executeAITurn(actingUnit.id);
 
-            // 行動終了後、CTをリセット（ディレイ発生）
-            updateUnit(actingUnit.id, { ct: 1000 }); // 基準値1000から素早さ分減っていく
+            // 最新の状態を取得して移動距離を計算
+            let actedUnit = unitsRef.current.find(u => u.id === actingUnit!.id);
+            if (actedUnit) {
+                let movedDist = getDistance(startX, startY, actedUnit.x, actedUnit.y);
+                // 行動終了後、CTをリセット（移動したマス数 * 100 をディレイに追加）
+                let addedDelay = movedDist * 100;
+                updateUnit(actingUnit.id, { ct: 1000 + addedDelay });
+            }
 
             await sleep(100); // tiny buffer
 
@@ -604,6 +656,12 @@ export default function FETacticsGame() {
                 <div className="font-bold text-xl tracking-wider text-blue-400">
                     STAGE {stage}
                 </div>
+                <button
+                    onClick={() => setShowHelp(true)}
+                    className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors border border-slate-600 text-slate-300"
+                >
+                    <HelpCircle size={16} /> 解説書
+                </button>
             </div>
 
             <div className="w-full max-w-lg flex-1 flex flex-col gap-4 px-2 pb-4">
@@ -817,6 +875,101 @@ export default function FETacticsGame() {
                     </div>
                 </div>
             </div>
+
+            {/* Help Modal */}
+            {showHelp && (
+                <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-slate-800 border border-slate-600 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col">
+                        <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-4 flex justify-between items-center z-10">
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <HelpCircle size={24} className="text-blue-400" />
+                                オートタクティクス 解説書
+                            </h2>
+                            <button onClick={() => setShowHelp(false)} className="p-1 bg-slate-700 hover:bg-red-500 rounded-full transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-6 text-sm text-slate-300">
+
+                            <section>
+                                <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 mb-2 pb-1">システム概要</h3>
+                                <ul className="list-disc pl-5 space-y-1">
+                                    <li>部隊全体で共有する <strong>コスト100</strong> の範囲内で、ユニットのステータス強化・武器・スキルを割り当てます。</li>
+                                    <li>戦闘はフルオートで進行します。行動順は「素早さ (SPD)」に応じたCT（チャージタイム）システムです。</li>
+                                    <li>行動後、移動した距離（マス数）に応じて追加のディレイ（CTペナルティ）が発生します。</li>
+                                </ul>
+                            </section>
+
+                            <section>
+                                <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 mb-2 pb-1">クラスと適正距離</h3>
+                                <p className="mb-2">武器によって、対象との距離（マンハッタン距離）に応じたダメージ補正がかかります。適正距離以外ではダメージが激減するか、攻撃自体が届きません。</p>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left bg-slate-900 border border-slate-700">
+                                        <thead>
+                                            <tr className="bg-slate-700 text-slate-200">
+                                                <th className="p-2 border-r border-slate-600">クラス</th>
+                                                <th className="p-2 border-r border-slate-600 text-center">距1</th>
+                                                <th className="p-2 border-r border-slate-600 text-center">距2</th>
+                                                <th className="p-2 border-r border-slate-600 text-center">距3</th>
+                                                <th className="p-2 border-r border-slate-600 text-center">距4</th>
+                                                <th className="p-2 text-center">距5</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr className="border-b border-slate-700">
+                                                <td className="p-2 border-r border-slate-700">⚔️ 戦士・🛡️ 重騎士・🗡️ 暗殺者</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-yellow-300 font-bold">100%</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-600">-</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-600">-</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-600">-</td>
+                                                <td className="p-2 text-center text-slate-600">-</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-700">
+                                                <td className="p-2 border-r border-slate-700">🏹 弓兵</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-400">20%</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-yellow-300 font-bold">100%</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-400">30%</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-600">-</td>
+                                                <td className="p-2 text-center text-slate-600">-</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-700">
+                                                <td className="p-2 border-r border-slate-700">🔥 魔道士</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-400">10%</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-400">30%</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-yellow-300 font-bold">100%</td>
+                                                <td className="p-2 border-r border-slate-700 text-center text-slate-600">-</td>
+                                                <td className="p-2 text-center text-slate-600">-</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+
+                            <section>
+                                <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 mb-2 pb-1">ステータス強化コスト</h3>
+                                <p className="mb-2">1つのステータスを上げる際、強化段階が上がるごとに必要なコストが増加します。</p>
+                                <ul className="list-none space-y-1 bg-slate-900 p-3 rounded border border-slate-700 font-mono text-xs">
+                                    <li>+1 強化: コスト 1 (累計 1)</li>
+                                    <li>+2 強化: コスト 2 (累計 3)</li>
+                                    <li>+3 強化: コスト 3 (累計 6)</li>
+                                    <li>+4 強化: コスト 4 (累計 10)</li>
+                                    <li>+5 強化: コスト 5 (累計 15)</li>
+                                </ul>
+                            </section>
+
+                            <section>
+                                <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 mb-2 pb-1">クラス相性・クリティカル</h3>
+                                <ul className="list-disc pl-5 space-y-1">
+                                    <li><strong>弓兵</strong> は 魔道士 に1.5倍のダメージ。</li>
+                                    <li><strong>魔道士</strong> は 重騎士 に1.5倍のダメージ。</li>
+                                    <li><strong>暗殺者</strong> は 魔道士 に1.5倍のダメージ。</li>
+                                    <li><strong>クリティカル（必殺）</strong> が発動すると、相手の防御（または魔防）を <strong>7割減（30%）</strong> としてダメージを計算します。</li>
+                                </ul>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style dangerouslySetInnerHTML={{__html: `
                 @keyframes slideUp {
