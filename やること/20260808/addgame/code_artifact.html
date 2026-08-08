@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ジオ・オブジェ・コレクター</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet.js (地図描画ライブラリ) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+    #map { height: 100%; width: 100%; z-index: 1; }
+    
+    /* オブジェ用アイコン */
+    .custom-icon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 50%;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+    
+    /* プレイヤーの現在地アイコン */
+    .user-icon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(59, 130, 246, 0.5); /* Blue */
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+      transition: all 0.3s;
+    }
+    
+    /* UIオーバーレイ */
+    #ui-layer {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; /* マップへのタッチ操作を透過させる */
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 10;
+    }
+    /* UI部分はタッチ操作を有効にする */
+    .pointer-events-auto { pointer-events: auto; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  
+  <!-- 地図表示エリア -->
+  <div id="map"></div>
+  
+  <!-- UIレイヤー -->
+  <div id="ui-layer" class="p-4 pb-8">
+    
+    <!-- ヘッダー -->
+    <div class="pointer-events-auto bg-white/90 backdrop-blur rounded-2xl p-4 shadow-lg flex justify-between items-center">
+      <div>
+        <h1 class="text-xl font-bold text-gray-800 tracking-tight">ジオ・コレクター</h1>
+        <p class="text-xs text-gray-500 mt-1">設置したオブジェ: <span id="stats-count" class="font-bold text-blue-600">0</span></p>
+      </div>
+      <button onclick="centerMap()" class="bg-blue-100 p-3 rounded-full text-blue-600 hover:bg-blue-200 transition shadow-sm">
+        <!-- 現在地に戻るアイコン -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+      </button>
+    </div>
+
+    <!-- フッター (メッセージ & 探索ボタン) -->
+    <div class="pointer-events-auto mt-auto">
+      
+      <!-- メッセージボックス -->
+      <div id="message-box" class="bg-white/95 backdrop-blur rounded-2xl p-4 shadow-lg mb-4 text-sm font-medium text-center text-gray-800 hidden transform transition-all duration-300 translate-y-4 opacity-0 border-l-4 border-blue-500">
+      </div>
+      
+      <!-- 探索ボタン -->
+      <button onclick="handleSearch()" id="search-btn" class="w-full bg-blue-600 active:bg-blue-700 text-white font-bold text-lg py-4 rounded-2xl shadow-xl transition transform active:scale-95 disabled:opacity-50 disabled:active:scale-100 flex justify-center items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        周囲を探索する
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // --- データ定義 ---
+    // visits（訪問回数）に応じて配列のインデックス（0, 1, 2）の名前が選ばれます
+    const objectTypes = [
+      { id: 'tree', icon: '🌲', names: ['若木', '立派な木', '世界樹'] },
+      { id: 'signboard', icon: '🪧', names: ['古びた看板', 'きれいな看板', '伝説の道標'] },
+      { id: 'building', icon: '🏠', names: ['小さな小屋', '立派な家', '大豪邸'] },
+      { id: 'statue', icon: '🗽', names: ['石の像', 'ブロンズ像', '黄金の像'] },
+      { id: 'flower', icon: '🌷', names: ['一輪の花', '美しい花壇', '天空の庭園'] },
+      { id: 'crystal', icon: '💎', names: ['小さな結晶', '輝くクリスタル', '星のコア'] },
+    ];
+
+    const SEARCH_RADIUS_M = 50; // 同じオブジェとみなす半径（メートル）
+    const STORAGE_KEY = 'geo_objects_data'; // LocalStorageのキー
+
+    // --- 状態管理 ---
+    let map;
+    let userMarker;
+    let currentPos = null;
+    let objects = [];
+    let objectMarkers = [];
+    let isInitialLocationSet = false;
+
+    // --- 初期化 ---
+    function init() {
+      loadObjects();
+      initMap();
+      startLocationWatch();
+      updateStats();
+    }
+
+    // --- データ保存・読み込み ---
+    function loadObjects() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          objects = JSON.parse(saved);
+        } catch (e) {
+          console.error("データの読み込みに失敗しました", e);
+          objects = [];
+        }
+      }
+    }
+
+    function saveObjects() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(objects));
+      updateStats();
+    }
+
+    // オブジェの種類とレベルごとの名前を取得
+    function getObjectType(typeId) {
+      return objectTypes.find(t => t.id === typeId) || objectTypes[0];
+    }
+
+    function getObjectName(obj) {
+      const typeDef = getObjectType(obj.typeId);
+      let nameIndex = 0;
+      if (obj.visits >= 5) nameIndex = 1;  // レベル2
+      if (obj.visits >= 10) nameIndex = 2; // レベル3
+      return typeDef.names[nameIndex];
+    }
+
+    function updateStats() {
+      document.getElementById('stats-count').textContent = objects.length;
+    }
+
+    // --- マップ操作 (Leaflet.js) ---
+    function initMap() {
+      // 初期位置は東京駅付近に設定（位置情報が取れない場合のフォールバック）
+      map = L.map('map', { zoomControl: false }).setView([35.6812, 139.7671], 16);
+      
+      // OpenStreetMapのタイルレイヤーを使用
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+      }).addTo(map);
+
+      renderObjects();
+    }
+
+    function renderObjects() {
+      // 既存のマーカーをすべて削除
+      objectMarkers.forEach(m => map.removeLayer(m));
+      objectMarkers = [];
+
+      objects.forEach(obj => {
+        const typeDef = getObjectType(obj.typeId);
+        
+        // 訪問回数（レベル）に応じてアイコンの背景色を豪華にする
+        let bgStyle = 'background: rgba(255, 255, 255, 0.9);';
+        if (obj.visits >= 5) bgStyle = 'background: rgba(255, 223, 186, 0.9); border: 2px solid #f97316;'; // オレンジ枠
+        if (obj.visits >= 10) bgStyle = 'background: rgba(255, 215, 0, 0.9); border: 3px solid #eab308; box-shadow: 0 0 10px gold;'; // ゴールド枠
+
+        const icon = L.divIcon({
+          html: `<div style="font-size: 20px; ${bgStyle}" class="custom-icon w-10 h-10">${typeDef.icon}</div>`,
+          className: '', // カスタムクラスはhtml内で定義
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+          popupAnchor: [0, -20]
+        });
+
+        const marker = L.marker([obj.lat, obj.lng], { icon: icon }).addTo(map);
+        
+        // タップ時に表示されるポップアップ情報
+        const name = getObjectName(obj);
+        marker.bindPopup(`
+          <div class="text-center p-1 min-w-[120px]">
+            <div class="text-3xl mb-1">${typeDef.icon}</div>
+            <div class="font-bold text-gray-800 text-base">${name}</div>
+            <div class="text-xs text-blue-600 font-bold mt-1">訪問回数: ${obj.visits}回</div>
+            <div class="text-xs text-gray-500 mt-1">最終訪問: ${obj.lastVisitDate}</div>
+          </div>
+        `);
+        
+        objectMarkers.push(marker);
+      });
+    }
+
+    // 地図の中心を現在地に移動
+    function centerMap() {
+      if (currentPos) {
+        map.setView([currentPos.lat, currentPos.lng], 17, { animate: true });
+      } else {
+        showMessage("現在地を取得中です...");
+      }
+    }
+
+    // --- 位置情報取得 ---
+    function startLocationWatch() {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(
+          (position) => {
+            currentPos = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+
+            // プレイヤーの現在地マーカーを更新または作成
+            if (!userMarker) {
+              const uIcon = L.divIcon({
+                html: `<div style="font-size: 18px;">🚶</div>`,
+                className: 'user-icon w-10 h-10',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+              });
+              // 常に他のマーカーの上に表示するため zIndexOffset を設定
+              userMarker = L.marker([currentPos.lat, currentPos.lng], { icon: uIcon, zIndexOffset: 1000 }).addTo(map);
+            } else {
+              userMarker.setLatLng([currentPos.lat, currentPos.lng]);
+            }
+
+            // 初回取得時のみ、自動で現在地にズームする
+            if (!isInitialLocationSet) {
+              centerMap();
+              isInitialLocationSet = true;
+            }
+          },
+          (error) => {
+            console.error("Geolocation error:", error);
+            if(error.code === 1) {
+              showMessage("位置情報の利用が許可されていません", 5000);
+            }
+          },
+          // 高精度な位置情報を要求
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        );
+      } else {
+        showMessage("お使いのブラウザは位置情報に対応していません");
+      }
+    }
+
+    // --- ゲームロジック ---
+
+    // 2点間の距離(メートル)を計算 (ヒュベニの公式の簡易版: ハーベサイン公式)
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; 
+      const φ1 = lat1 * Math.PI/180; 
+      const φ2 = lat2 * Math.PI/180;
+      const Δφ = (lat2-lat1) * Math.PI/180;
+      const Δλ = (lon2-lon1) * Math.PI/180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c; 
+    }
+
+    // 今日の日付を YYYY-MM-DD 形式で取得
+    function getTodayString() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    }
+
+    // 探索ボタンを押した時の演出と処理
+    function handleSearch() {
+      if (!currentPos) {
+        showMessage("現在地を取得中です。少しお待ちください。");
+        return;
+      }
+
+      const btn = document.getElementById('search-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 探索中...`;
+
+      // 探索している感を出すための意図的な遅延
+      setTimeout(() => {
+        performSearchAction();
+        btn.disabled = false;
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> 周囲を探索する`;
+      }, 800);
+    }
+
+    // 実際の判定ロジック
+    function performSearchAction() {
+      let closestObj = null;
+      let minDistance = Infinity;
+      
+      // 全てのオブジェクトとの距離を計算し、一番近いものを探す
+      objects.forEach(obj => {
+        const dist = getDistance(currentPos.lat, currentPos.lng, obj.lat, obj.lng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestObj = obj;
+        }
+      });
+      
+      const today = getTodayString();
+      
+      // 半径50m以内にオブジェクトが存在するかチェック
+      if (closestObj && minDistance <= SEARCH_RADIUS_M) {
+        // 既存のオブジェクトにアクセス
+        if (closestObj.lastVisitDate === today) {
+          showMessage(`「${getObjectName(closestObj)}」は今日は訪問済みです。明日また来ましょう！`);
+        } else {
+          // 訪問回数アップ
+          closestObj.visits++;
+          closestObj.lastVisitDate = today;
+          saveObjects();
+          renderObjects(); // マーカーの見た目更新のため再描画
+          
+          // 訪問したオブジェクトのポップアップを開く
+          const marker = objectMarkers.find(m => m.getLatLng().lat === closestObj.lat && m.getLatLng().lng === closestObj.lng);
+          if (marker) marker.openPopup();
+
+          let levelUpMsg = "";
+          if (closestObj.visits === 5) levelUpMsg = " (レベル2に成長しました！)";
+          if (closestObj.visits === 10) levelUpMsg = " (レベルMAXに成長しました！)";
+
+          showMessage(`✨「${getObjectName(closestObj)}」に訪問しました！${levelUpMsg}`);
+        }
+      } else {
+        // 周囲に何もない場合は、新しくオブジェクトを設置
+        // まったく同じ座標に重ならないよう、ほんの少しだけランダムにずらす
+        const offsetLat = (Math.random() - 0.5) * 0.0002;
+        const offsetLng = (Math.random() - 0.5) * 0.0002;
+
+        const randomType = objectTypes[Math.floor(Math.random() * objectTypes.length)];
+        const newObj = {
+          id: Date.now().toString(),
+          lat: currentPos.lat + offsetLat,
+          lng: currentPos.lng + offsetLng,
+          typeId: randomType.id,
+          visits: 1,
+          lastVisitDate: today
+        };
+        
+        objects.push(newObj);
+        saveObjects();
+        renderObjects();
+        
+        // 新しく出来たオブジェクトのポップアップを開く
+        const marker = objectMarkers[objectMarkers.length - 1];
+        if (marker) marker.openPopup();
+
+        showMessage(`🎉 新しい「${getObjectName(newObj)}」を設置しました！`);
+      }
+    }
+
+    // --- UI 補助関数 ---
+    let messageTimeout;
+    function showMessage(text, duration = 3500) {
+      const box = document.getElementById('message-box');
+      box.textContent = text;
+      
+      // 表示アニメーション
+      box.classList.remove('hidden');
+      void box.offsetWidth; // リフローを強制してアニメーションをトリガー
+      box.classList.remove('translate-y-4', 'opacity-0');
+      
+      clearTimeout(messageTimeout);
+      messageTimeout = setTimeout(() => {
+        // 非表示アニメーション
+        box.classList.add('translate-y-4', 'opacity-0');
+        setTimeout(() => box.classList.add('hidden'), 300); // トランジションを待つ
+      }, duration);
+    }
+
+    // 起動
+    window.onload = init;
+  </script>
+</body>
+</html>
