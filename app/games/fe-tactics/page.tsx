@@ -14,11 +14,14 @@ interface Job {
     hp: number; atk: number; def: number; res: number; spd: number; mov: number;
     rangeMods: number[]; // 距離1, 2, 3, 4, 5 に対応する威力補正（0〜10）
     color: string; desc: string;
+    deployCost: number; // 編成コスト（部隊コスト300制限用）
 }
 
 interface Weapon {
     id: string; name: string; cost: number;
     atkBonus: number; critBonus: number;
+    reqJob?: JobId; // 特定の職業専用の場合
+    effectiveAgainst?: JobId[]; // 特効対象の職業
 }
 
 interface Skill {
@@ -60,14 +63,14 @@ const MOD_GUN   = [2, 2, 2, 10, 3, 0, 0];
 const MOD_HEAL  = [0, 10, 5, 0, 0, 0, 0]; // 僧侶用
 
 const JOBS: Record<JobId, Job> = {
-    fighter: { id: 'fighter', name: '戦士', emoji: '⚔️', hp: 40, atk: 20, def: 8, res: 3, spd: 10, mov: 3, rangeMods: MOD_MELEE, color: 'bg-red-500', desc: '近接。すべての基準。' },
-    knight:  { id: 'knight', name: '重騎士', emoji: '🛡️', hp: 60, atk: 18, def: 18, res: 6, spd: 5, mov: 2, rangeMods: MOD_MELEE, color: 'bg-blue-500', desc: '高耐久。非常に遅い。' },
-    assassin:{ id: 'assassin', name: '暗殺者', emoji: '🗡️', hp: 25, atk: 22, def: 3, res: 2, spd: 18, mov: 4, rangeMods: MOD_MELEE, color: 'bg-slate-700', desc: '手数が多く機動力に優れるが脆い。' },
-    archer:  { id: 'archer', name: '弓兵', emoji: '🏹', hp: 30, atk: 18, def: 4, res: 5, spd: 12, mov: 3, rangeMods: MOD_BOW, color: 'bg-green-500', desc: '中距離適正。やや速い。' },
-    mage:    { id: 'mage', name: '魔道士', emoji: '🔥', hp: 22, atk: 23, def: 2, res: 12, spd: 6, mov: 2, rangeMods: MOD_MAGIC, color: 'bg-purple-500', desc: '遠距離適正。脆くて遅い。' },
-    cleric:  { id: 'cleric', name: '僧侶', emoji: '✨', hp: 28, atk: 16, def: 4, res: 12, spd: 9, mov: 2, rangeMods: MOD_HEAL, color: 'bg-yellow-400', desc: '味方のHPを回復する(AIのみ)。' },
-    cavalry: { id: 'cavalry', name: '騎兵', emoji: '🐎', hp: 45, atk: 21, def: 10, res: 5, spd: 11, mov: 5, rangeMods: MOD_MELEE, color: 'bg-orange-600', desc: '【敵専用】非常に高い機動力を持つ。' },
-    droid:   { id: 'droid', name: 'ドロイド', emoji: '🤖', hp: 80, atk: 24, def: 12, res: 10, spd: 7, mov: 2, rangeMods: MOD_MELEE, color: 'bg-zinc-500', desc: '【敵専用】特殊なAIで3種の攻撃を切り替える。' }
+    fighter: { id: 'fighter', name: '戦士', emoji: '⚔️', hp: 50, atk: 20, def: 8, res: 0, spd: 10, mov: 3, rangeMods: MOD_MELEE, color: 'bg-red-500', desc: '近接。すべての基準。', deployCost: 50 },
+    archer:  { id: 'archer', name: '弓兵', emoji: '🏹', hp: 40, atk: 18, def: 4, res: 0, spd: 12, mov: 3, rangeMods: MOD_BOW, color: 'bg-green-500', desc: '中距離適正。やや速い。', deployCost: 55 },
+    mage:    { id: 'mage', name: '魔道士', emoji: '🔥', hp: 30, atk: 23, def: 2, res: 15, spd: 6, mov: 2, rangeMods: MOD_MAGIC, color: 'bg-purple-500', desc: '遠距離適正。脆くて遅い。', deployCost: 60 },
+    cleric:  { id: 'cleric', name: '僧侶', emoji: '✨', hp: 38, atk: 16, def: 4, res: 15, spd: 9, mov: 2, rangeMods: MOD_HEAL, color: 'bg-yellow-400', desc: '味方のHPを回復する(AIのみ)。', deployCost: 60 },
+    knight:  { id: 'knight', name: '重騎士', emoji: '🛡️', hp: 80, atk: 18, def: 20, res: 0, spd: 5, mov: 2, rangeMods: MOD_MELEE, color: 'bg-blue-500', desc: '高耐久。非常に遅い。', deployCost: 70 },
+    assassin:{ id: 'assassin', name: '暗殺者', emoji: '🗡️', hp: 35, atk: 22, def: 3, res: 0, spd: 18, mov: 4, rangeMods: MOD_MELEE, color: 'bg-slate-700', desc: '手数が多く機動力に優れるが脆い。', deployCost: 80 },
+    cavalry: { id: 'cavalry', name: '騎兵', emoji: '🐎', hp: 55, atk: 21, def: 10, res: 0, spd: 11, mov: 5, rangeMods: MOD_MELEE, color: 'bg-orange-600', desc: '【敵専用】非常に高い機動力を持つ。', deployCost: 80 },
+    droid:   { id: 'droid', name: 'ドロイド', emoji: '🤖', hp: 100, atk: 24, def: 15, res: 10, spd: 7, mov: 2, rangeMods: MOD_MELEE, color: 'bg-zinc-500', desc: '【敵専用】特殊なAIで3種の攻撃を切り替える。', deployCost: 120 }
 };
 
 const WEAPONS: Weapon[] = [
@@ -75,6 +78,9 @@ const WEAPONS: Weapon[] = [
     { id: 'steel', name: '鋼の武器', cost: 5, atkBonus: 3, critBonus: 0 },
     { id: 'killer', name: 'キラー武器', cost: 10, atkBonus: 1, critBonus: 20 },
     { id: 'silver', name: '銀の武器', cost: 15, atkBonus: 6, critBonus: 0 },
+    { id: 'brave', name: '勇者の斧', cost: 20, atkBonus: 4, critBonus: 0, reqJob: 'fighter' },
+    { id: 'horseslayer', name: 'ナイトキラー', cost: 10, atkBonus: 2, critBonus: 0, effectiveAgainst: ['cavalry'] },
+    { id: 'armorslayer', name: 'アーマーキラー', cost: 10, atkBonus: 2, critBonus: 0, effectiveAgainst: ['knight'] },
 ];
 
 const SKILLS: Skill[] = [
@@ -86,6 +92,7 @@ const SKILLS: Skill[] = [
     { id: 'drain', name: '吸血', cost: 12, desc: '攻撃時、30%の確率で与えたダメージの半分を回復' },
     { id: 'double_attack', name: '追撃', cost: 18, desc: '攻撃時、20%の確率で連続攻撃を行う' },
     { id: 'berserk_crit', name: '捨て身の必殺', cost: 15, desc: '必殺時ダメージ1.5倍・防御7割無視になるが、自身の最大HP20%の反動ダメージ' },
+    { id: 'swift_stance', name: '飛燕の構え', cost: 10, desc: '攻撃力(ATK)-5、速度(SPD)+10' },
 ];
 
 const ENEMY_PATTERNS = [
@@ -105,13 +112,14 @@ export default function FETacticsGame() {
     const [units, setUnits] = useState<Unit[]>([]);
     const [isPlaying, setIsPlaying] = useState(false);
     const [stage, setStage] = useState(1);
-    const [logs, setLogs] = useState<{msg: string, imp: boolean}[]>([]);
+    const [logs, setLogs] = useState<{msg: string, imp: boolean, isPlayerAction: boolean | null}[]>([]);
     const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
     const [damageEffects, setDamageEffects] = useState<{id: string, x: number, y: number, text: string, type: string}[]>([]);
 
     // Player Setup State
-    const [playerRoster, setPlayerRoster] = useState<JobId[]>(['fighter', 'mage', 'knight', 'cleric']);
+    const [playerRoster, setPlayerRoster] = useState<JobId[]>(['fighter', 'fighter', 'mage', 'knight', 'cleric']);
     const [playerBuilds, setPlayerBuilds] = useState<UnitBuild[]>([
+        { addedStats: { hp: 0, atk: 0, def: 0, res: 0, spd: 0 }, weaponId: 'iron', skillId: 'none' },
         { addedStats: { hp: 0, atk: 0, def: 0, res: 0, spd: 0 }, weaponId: 'iron', skillId: 'none' },
         { addedStats: { hp: 0, atk: 0, def: 0, res: 0, spd: 0 }, weaponId: 'iron', skillId: 'none' },
         { addedStats: { hp: 0, atk: 0, def: 0, res: 0, spd: 0 }, weaponId: 'iron', skillId: 'none' },
@@ -119,12 +127,13 @@ export default function FETacticsGame() {
     ]);
     const [formation, setFormation] = useState<FormationType>('vanguard');
     const [isSetupPhase, setIsSetupPhase] = useState(true);
+    const [maxCost, setMaxCost] = useState(300); // 初期コスト上限300
 
     // UI State for Setup
     const [editingUnitIdx, setEditingUnitIdx] = useState<number>(0);
     const [showHelp, setShowHelp] = useState(false);
+    const [showDebug, setShowDebug] = useState(false);
 
-    const logsEndRef = useRef<HTMLDivElement>(null);
     const isPlayingRef = useRef(false); // Ref to break loops safely
     const unitsRef = useRef<Unit[]>([]); // Ref to hold latest state for async AI loop
 
@@ -132,12 +141,8 @@ export default function FETacticsGame() {
         unitsRef.current = units;
     }, [units]);
 
-    useEffect(() => {
-        if (logsEndRef.current) logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }, [logs]);
-
-    const addLog = (msg: string, imp = false) => {
-        setLogs(prev => [{msg, imp}, ...prev]); // 常に先頭に追加（上が最新）
+    const addLog = (msg: string, imp = false, isPlayerAction: boolean | null = null) => {
+        setLogs(prev => [{msg, imp, isPlayerAction}, ...prev]); // 常に先頭に追加（上が最新）
     };
 
     const showEffect = (unit: Unit, text: string, type: string) => {
@@ -155,10 +160,14 @@ export default function FETacticsGame() {
 
     const getTotalCost = () => {
         let total = 0;
-        playerBuilds.forEach(build => {
-            Object.values(build.addedStats).forEach(st => total += calculateCost(st));
-            total += WEAPONS.find(w => w.id === build.weaponId)?.cost || 0;
-            total += SKILLS.find(s => s.id === build.skillId)?.cost || 0;
+        playerRoster.forEach((jobId, idx) => {
+            total += JOBS[jobId].deployCost;
+            const build = playerBuilds[idx];
+            if (build) {
+                Object.values(build.addedStats).forEach(st => total += calculateCost(st));
+                total += WEAPONS.find(w => w.id === build.weaponId)?.cost || 0;
+                total += SKILLS.find(s => s.id === build.skillId)?.cost || 0;
+            }
         });
         return total;
     };
@@ -181,7 +190,7 @@ export default function FETacticsGame() {
         const weapon = WEAPONS.find(w => w.id === build.weaponId)!;
         const skill = SKILLS.find(s => s.id === build.skillId)!;
 
-        let fHp = job.hp + build.addedStats.hp * 5;
+        let fHp = job.hp + build.addedStats.hp * 2; // HPは1振りにつき+2に変更
         let fAtk = job.atk + build.addedStats.atk + weapon.atkBonus;
         let fDef = job.def + build.addedStats.def;
         let fRes = job.res + build.addedStats.res;
@@ -192,6 +201,7 @@ export default function FETacticsGame() {
         if (skill.id === 'bulwark') { fDef += 5; fRes += 5; fSpd -= 3; }
         if (skill.id === 'deathblow') { fCrit += 15; }
         if (skill.id === 'mov_up') { fMov += 1; }
+        if (skill.id === 'swift_stance') { fAtk -= 5; fSpd += 10; }
 
         return { hp: fHp, atk: fAtk, def: fDef, res: fRes, spd: fSpd, mov: fMov, critRate: fCrit };
     };
@@ -265,7 +275,7 @@ export default function FETacticsGame() {
 
     // --- Roster Management ---
     const addClass = (jobId: JobId) => {
-        if(playerRoster.length < 5) {
+        if(playerRoster.length < 6) {
             setPlayerRoster([...playerRoster, jobId]);
             setPlayerBuilds([...playerBuilds, { addedStats: { hp: 0, atk: 0, def: 0, res: 0, spd: 0 }, weaponId: 'iron', skillId: 'none' }]);
         }
@@ -289,10 +299,10 @@ export default function FETacticsGame() {
         const currentVal = newBuilds[idx].addedStats[stat];
         const newVal = Math.max(0, currentVal + delta); // 下限は0
 
-        // 仮に更新してみてコストが100を超える場合はキャンセル（減らす場合はOK）
+        // 仮に更新してみてコストが最大コストを超える場合はキャンセル（減らす場合はOK）
         if (delta > 0) {
             const costDiff = calculateCost(newVal) - calculateCost(currentVal);
-            if (getTotalCost() + costDiff > 100) return;
+            if (getTotalCost() + costDiff > maxCost) return;
         }
 
         newBuilds[idx].addedStats = { ...newBuilds[idx].addedStats, [stat]: newVal };
@@ -447,23 +457,33 @@ export default function FETacticsGame() {
             target = bestTarget;
         }
 
+        let hasMovedInTurn = false;
         if (bestMove.x !== u.x || bestMove.y !== u.y) {
             updateUnit(u.id, {x: bestMove.x, y: bestMove.y});
             addLog(`${u.job.name} は移動した。`);
             await sleep(SLEEP_MS);
             u = unitsRef.current.find(x => x.id === unitId)!;
+            hasMovedInTurn = true;
         }
 
         let distToTarget = getDistance(u.x, u.y, target.x, target.y);
         let currentMod = getDamageMod(u, distToTarget);
+
+        // 移動せずに攻撃する場合はダメージ1.2倍ボーナス
+        if (!hasMovedInTurn && currentMod > 0) {
+            currentMod *= 1.2;
+        }
 
         if (currentMod > 0) {
             // Combat calculation (using finalStats and distance mod)
             let isMagic = u.job.id === 'mage' || u.job.id === 'cleric' || (u.job.id === 'droid' && u.droidState === 1);
             let defStat = isMagic ? target.finalStats.res : target.finalStats.def;
 
-            // Attack loop (handles double attack skill)
-            let attackCount = (u.build?.skillId === 'double_attack' && Math.random() < 0.2) ? 2 : 1;
+            // Attack loop (handles double attack skill and brave weapon)
+            let isBrave = u.build?.weaponId === 'brave';
+            let attackCount = 1;
+            if (isBrave) attackCount = 2; // 勇者の斧は確定2回攻撃
+            else if (u.build?.skillId === 'double_attack' && Math.random() < 0.2) attackCount = 2;
 
             // ドロイドの攻撃パターン名
             let attackName = "の攻撃";
@@ -497,6 +517,12 @@ export default function FETacticsGame() {
                 if (u.job.id === 'mage' && target.job.id === 'knight') dmg = Math.floor(dmg * 1.5);
                 if (u.job.id === 'assassin' && target.job.id === 'mage') dmg = Math.floor(dmg * 1.5);
 
+                // Effective Against (Weapon)
+                const weapon = WEAPONS.find(w => w.id === u.build?.weaponId);
+                if (weapon?.effectiveAgainst?.includes(target.job.id)) {
+                    dmg = Math.floor(dmg * 1.5);
+                }
+
                 if (dmg <= 0) dmg = 1;
 
                 let newHp = target.hp - dmg;
@@ -508,18 +534,18 @@ export default function FETacticsGame() {
 
                 if (isCrit) {
                     showEffect(target, `CRITICAL! -${dmg}`, 'text-yellow-400 font-black text-2xl');
-                    addLog(`${prefix}🔥 必殺の一撃！ ${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`, true);
+                    addLog(`${prefix}🔥 必殺の一撃！ ${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`, true, u.isPlayer);
 
                     if (isBerserk) {
                         let recoil = Math.max(1, Math.floor(u.maxHp * 0.2));
                         let uNewHp = Math.max(1, u.hp - recoil); // 反動では死なない(1残る)
                         updateUnit(u.id, { hp: uNewHp });
                         showEffect(u, `-${recoil}`, 'text-red-600 font-bold text-sm');
-                        addLog(`⚠️ 捨て身の反動！ ${u.job.name} は ${recoil} のダメージを受けた。`);
+                        addLog(`⚠️ 捨て身の反動！ ${u.job.name} は ${recoil} のダメージを受けた。`, false, u.isPlayer);
                     }
                 } else {
                     showEffect(target, `-${dmg}`, 'text-red-400 font-bold text-xl');
-                    addLog(`${prefix}${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`);
+                    addLog(`${prefix}${u.job.name}${attackName}！ ${target.job.name} に ${dmg} ダメージ！`, false, u.isPlayer);
                 }
 
                 // Drain skill
@@ -528,11 +554,11 @@ export default function FETacticsGame() {
                     let uNewHp = Math.min(u.maxHp, u.hp + heal);
                     updateUnit(u.id, { hp: uNewHp });
                     showEffect(u, `+${heal}`, 'text-green-400 font-bold text-sm');
-                    addLog(`🦇 吸血！ ${u.job.name} は ${heal} 回復した。`);
+                    addLog(`🦇 吸血！ ${u.job.name} は ${heal} 回復した。`, false, u.isPlayer);
                 }
 
                 if (died) {
-                    addLog(`☠️ ${target.job.name} は倒れた！`);
+                    addLog(`☠️ ${target.job.name} は倒れた！`, false, target.isPlayer);
                     target.isDead = true; // loop内での状態更新
                 }
 
@@ -569,7 +595,19 @@ export default function FETacticsGame() {
 
             // 誰も行動可能(CT<=0)でないなら時間を進める
             if (minCt > 0) {
-                const tick = 1; // tick幅
+                // 最も早く行動順が回ってくるユニットがちょうど CT<=0 になるようにtick幅を計算する（時間短縮）
+                // ただし、0除算を防ぐため最低1とする
+                let maxTick = 1;
+                curUnits.forEach(u => {
+                    if (u.finalStats.spd > 0) {
+                        const requiredTick = Math.ceil(u.ct / u.finalStats.spd);
+                        if (minCtUnit && u.id === minCtUnit.id) {
+                            maxTick = requiredTick;
+                        }
+                    }
+                });
+                const tick = Math.max(1, maxTick);
+
                 const updatedUnits = curUnits.map(u => ({ ...u, ct: u.ct - (u.finalStats.spd * tick) }));
                 setUnits(prev => prev.map(p => {
                     const match = updatedUnits.find(u => u.id === p.id);
@@ -627,6 +665,7 @@ export default function FETacticsGame() {
                     addLog('>>> 敗北...部隊は全滅した。', true);
                 } else {
                     addLog('>>> 勝利！敵を殲滅した！', true);
+                        setMaxCost(prev => prev + 10); // ステージクリアで最大コスト+10
                     await sleep(1000);
                     setStage(s => s + 1);
                     initStage(stage + 1);
@@ -646,6 +685,15 @@ export default function FETacticsGame() {
         initStage(stage);
     };
 
+    // --- Debug Helper ---
+    const updateJobStat = (jobId: JobId, stat: keyof Job, value: number) => {
+        // Warning: This mutates the JOBS constant directly for debugging purposes.
+        // In a real app, JOBS should be in a state or context.
+        (JOBS[jobId] as any)[stat] = value;
+        // Trigger a re-render by creating a new reference for the player builds (hacky but works for debug UI refresh)
+        setPlayerBuilds([...playerBuilds]);
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 text-slate-200 font-sans flex flex-col items-center">
             {/* Header / Nav */}
@@ -656,12 +704,20 @@ export default function FETacticsGame() {
                 <div className="font-bold text-xl tracking-wider text-blue-400">
                     STAGE {stage}
                 </div>
-                <button
-                    onClick={() => setShowHelp(true)}
-                    className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors border border-slate-600 text-slate-300"
-                >
-                    <HelpCircle size={16} /> 解説書
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowDebug(true)}
+                        className="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded transition-colors border border-slate-600 text-slate-400"
+                    >
+                        DEBUG
+                    </button>
+                    <button
+                        onClick={() => setShowHelp(true)}
+                        className="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition-colors border border-slate-600 text-slate-300"
+                    >
+                        <HelpCircle size={16} /> 解説書
+                    </button>
+                </div>
             </div>
 
             <div className="w-full max-w-lg flex-1 flex flex-col gap-4 px-2 pb-4">
@@ -714,8 +770,8 @@ export default function FETacticsGame() {
                         <div className="space-y-4">
                             <div className="flex justify-between items-center border-b border-slate-700 pb-2">
                                 <h3 className="font-bold text-blue-300">編成・強化フェイズ</h3>
-                                <div className={`font-bold ${currentTotalCost > 100 ? 'text-red-400' : 'text-green-400'}`}>
-                                    コスト: {currentTotalCost} / 100
+                                <div className={`font-bold ${currentTotalCost > maxCost ? 'text-red-400' : 'text-green-400'}`}>
+                                    コスト: {currentTotalCost} / {maxCost}
                                 </div>
                             </div>
 
@@ -735,7 +791,7 @@ export default function FETacticsGame() {
                             </div>
 
                             <div>
-                                <label className="text-xs text-slate-400 block mb-1">部隊 (最大5人):</label>
+                                <label className="text-xs text-slate-400 block mb-1">部隊 (最大6人):</label>
                                 <div className="flex flex-wrap gap-2 mb-2">
                                     {playerRoster.map((job, idx) => (
                                         <div
@@ -749,16 +805,23 @@ export default function FETacticsGame() {
                                     ))}
                                 </div>
                                 <div className="flex gap-2 flex-wrap">
-                                    {(Object.keys(JOBS) as JobId[]).map(key => (
-                                        <button
-                                            key={key}
-                                            onClick={() => addClass(key)}
-                                            disabled={playerRoster.length >= 5}
-                                            className="bg-slate-900 hover:bg-slate-700 disabled:opacity-50 px-2 py-1 rounded text-sm border border-slate-700 flex items-center gap-1 transition-colors"
-                                        >
-                                            {JOBS[key].emoji}
-                                        </button>
-                                    ))}
+                                    {(Object.keys(JOBS) as JobId[]).map(key => {
+                                        const jobBase = JOBS[key];
+                                        // 敵専用のクラスは追加ボタンを表示しない
+                                        if (jobBase.deployCost === 80 && (key === 'cavalry' || key === 'droid')) return null;
+
+                                        return (
+                                            <button
+                                                key={key}
+                                                onClick={() => addClass(key)}
+                                                disabled={playerRoster.length >= 6}
+                                                className="bg-slate-900 hover:bg-slate-700 disabled:opacity-50 px-2 py-1 rounded text-sm border border-slate-700 flex items-center gap-1 transition-colors"
+                                                title={`${jobBase.name} (コスト${jobBase.deployCost})`}
+                                            >
+                                                {jobBase.emoji}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -776,7 +839,7 @@ export default function FETacticsGame() {
                                                 const sType = stat as StatType;
                                                 const lvl = playerBuilds[editingUnitIdx].addedStats[sType];
                                                 const nextCost = lvl + 1; // 1段階上げるのに必要な追加コスト
-                                                const canAfford = currentTotalCost + nextCost <= 100;
+                                                const canAfford = currentTotalCost + nextCost <= maxCost;
 
                                                 return (
                                                     <div key={stat} className="flex items-center justify-between text-sm">
@@ -799,13 +862,16 @@ export default function FETacticsGame() {
                                                     onChange={(e) => {
                                                         const newW = WEAPONS.find(w => w.id === e.target.value)!;
                                                         const oldW = WEAPONS.find(w => w.id === playerBuilds[editingUnitIdx].weaponId)!;
-                                                        if (currentTotalCost - oldW.cost + newW.cost <= 100) {
+                                                        if (currentTotalCost - oldW.cost + newW.cost <= maxCost) {
                                                             updateBuild(editingUnitIdx, { weaponId: newW.id });
                                                         }
                                                     }}
                                                     className="w-full bg-slate-800 border border-slate-600 rounded p-1 text-sm focus:outline-none focus:border-blue-500"
                                                 >
-                                                    {WEAPONS.map(w => <option key={w.id} value={w.id}>{w.name} (ｺスト{w.cost})</option>)}
+                                                    {WEAPONS.map(w => {
+                                                        const canEquip = !w.reqJob || w.reqJob === playerRoster[editingUnitIdx];
+                                                        return canEquip ? <option key={w.id} value={w.id}>{w.name} (ｺスト{w.cost})</option> : null;
+                                                    })}
                                                 </select>
                                             </div>
                                             <div>
@@ -815,7 +881,7 @@ export default function FETacticsGame() {
                                                     onChange={(e) => {
                                                         const newS = SKILLS.find(s => s.id === e.target.value)!;
                                                         const oldS = SKILLS.find(s => s.id === playerBuilds[editingUnitIdx].skillId)!;
-                                                        if (currentTotalCost - oldS.cost + newS.cost <= 100) {
+                                                        if (currentTotalCost - oldS.cost + newS.cost <= maxCost) {
                                                             updateBuild(editingUnitIdx, { skillId: newS.id });
                                                         }
                                                     }}
@@ -831,7 +897,7 @@ export default function FETacticsGame() {
 
                             <button
                                 onClick={startGameLoop}
-                                disabled={currentTotalCost > 100 || playerRoster.length === 0}
+                                disabled={currentTotalCost > maxCost || playerRoster.length === 0}
                                 className="w-full mt-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:text-slate-400 text-white font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
                             >
                                 <Play size={20} /> 戦闘開始 (オート)
@@ -867,11 +933,18 @@ export default function FETacticsGame() {
                 {/* Log Panel */}
                 <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 h-48 w-full overflow-y-auto text-sm shadow-inner font-mono flex-shrink-0 relative">
                     <div className="absolute top-0 w-full pr-3 pb-4">
-                        {logs.map((log, i) => (
-                            <div key={i} className={`mb-1.5 border-b border-slate-800 pb-1 ${log.imp ? 'text-yellow-300 font-bold' : 'text-slate-300'}`}>
-                                {log.msg}
-                            </div>
-                        ))}
+                        {logs.map((log, i) => {
+                            let colorClass = 'text-slate-300';
+                            if (log.imp) colorClass = 'text-yellow-300 font-bold';
+                            else if (log.isPlayerAction === true) colorClass = 'text-blue-300';
+                            else if (log.isPlayerAction === false) colorClass = 'text-red-300';
+
+                            return (
+                                <div key={i} className={`mb-1.5 border-b border-slate-800 pb-1 ${colorClass}`}>
+                                    {log.msg}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -947,7 +1020,7 @@ export default function FETacticsGame() {
 
                             <section>
                                 <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 mb-2 pb-1">ステータス強化コスト</h3>
-                                <p className="mb-2">1つのステータスを上げる際、強化段階が上がるごとに必要なコストが増加します。</p>
+                                <p className="mb-2">1つのステータスを上げる際、強化段階が上がるごとに必要なコストが増加します。<br/>※HPは1振りにつき+2されます。</p>
                                 <ul className="list-none space-y-1 bg-slate-900 p-3 rounded border border-slate-700 font-mono text-xs">
                                     <li>+1 強化: コスト 1 (累計 1)</li>
                                     <li>+2 強化: コスト 2 (累計 3)</li>
@@ -958,14 +1031,52 @@ export default function FETacticsGame() {
                             </section>
 
                             <section>
-                                <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 mb-2 pb-1">クラス相性・クリティカル</h3>
+                                <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 mb-2 pb-1">クラス相性・クリティカル・移動ボーナス</h3>
                                 <ul className="list-disc pl-5 space-y-1">
-                                    <li><strong>弓兵</strong> は 魔道士 に1.5倍のダメージ。</li>
-                                    <li><strong>魔道士</strong> は 重騎士 に1.5倍のダメージ。</li>
-                                    <li><strong>暗殺者</strong> は 魔道士 に1.5倍のダメージ。</li>
-                                    <li><strong>クリティカル（必殺）</strong> が発動すると、相手の防御（または魔防）を <strong>7割減（30%）</strong> としてダメージを計算します。</li>
+                                    <li><strong>特効と相性</strong>: 弓兵・暗殺者は魔道士に1.5倍、魔道士は重騎士に1.5倍のダメージを与えます。また、特効武器（ナイトキラー等）を装備していると対象へ1.5倍のダメージになります。</li>
+                                    <li><strong>クリティカル（必殺）</strong>: 発動すると、相手の防御・魔防を <strong>3割無視（0.7倍）</strong> して計算します。</li>
+                                    <li><strong>不動ボーナス</strong>: ユニットが移動せずにその場で攻撃した場合、最終ダメージが <strong>1.2倍</strong> になります。</li>
                                 </ul>
                             </section>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Debug Modal */}
+            {showDebug && (
+                <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-slate-800 border border-slate-600 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative flex flex-col">
+                        <div className="sticky top-0 bg-slate-800 border-b border-slate-700 p-4 flex justify-between items-center z-10">
+                            <h2 className="text-xl font-bold text-slate-300 flex items-center gap-2">
+                                🛠️ デバッグ：基本ステータス調整
+                            </h2>
+                            <button onClick={() => setShowDebug(false)} className="p-1 bg-slate-700 hover:bg-red-500 rounded-full transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            {(Object.keys(JOBS) as JobId[]).map(jobId => {
+                                const job = JOBS[jobId];
+                                return (
+                                    <div key={jobId} className="bg-slate-900 p-3 rounded border border-slate-700">
+                                        <div className="font-bold text-white mb-2">{job.emoji} {job.name} <span className="text-slate-400 text-xs">(Cost: {job.deployCost || '-'})</span></div>
+                                        <div className="grid grid-cols-5 gap-2">
+                                            {['hp', 'atk', 'def', 'res', 'spd'].map(stat => (
+                                                <div key={stat} className="flex flex-col">
+                                                    <label className="text-[10px] text-slate-400 uppercase">{stat}</label>
+                                                    <input
+                                                        type="number"
+                                                        value={(job as any)[stat]}
+                                                        onChange={(e) => updateJobStat(jobId, stat as keyof Job, Number(e.target.value))}
+                                                        className="bg-slate-800 border border-slate-600 text-white p-1 rounded text-sm w-full"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
