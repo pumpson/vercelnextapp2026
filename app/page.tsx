@@ -8,10 +8,10 @@ export default function Home() {
       </h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
-        <Link href="/games/walkingfield" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-blue-500 transition-all hover:scale-105 shadow-xl">
-          <div className="text-4xl mb-4">🚶</div>
-          <h2 className="text-2xl font-bold mb-2 group-hover:text-blue-400 transition-colors">WalkingField</h2>
-          <p className="text-gray-400">無限に広がる世界を探索し、自分だけの拠点を作るサバイバル・クラフトゲーム。</p>
+        <Link href="/games" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-purple-500 transition-all hover:scale-105 shadow-xl">
+          <div className="text-4xl mb-4">🎮</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-purple-400 transition-colors">Games Arcade</h2>
+          <p className="text-gray-400">様々なゲームで遊べるアーケード。新しいゲームも追加されました！</p>
         </Link>
 
         <Link href="/price-tracker" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-green-500 transition-all hover:scale-105 shadow-xl">

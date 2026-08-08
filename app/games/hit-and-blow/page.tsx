@@ -1,108 +1,94 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, HelpCircle, Trophy, Delete, ArrowRight, X } from 'lucide-react';
+"use client";
 
-export default function App() {
-  const [difficulty, setDifficulty] = useState(3); // 桁数 (3, 4, 5)
-  const [secretCode, setSecretCode] = useState([]);
-  const [currentGuess, setCurrentGuess] = useState('');
-  const [history, setHistory] = useState([]);
-  const [gameState, setGameState] = useState('playing'); // playing, won
+import React, { useState, useEffect } from 'react';
+import { Delete, ArrowRight, HelpCircle, RefreshCw, Trophy, X, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+
+export default function HitAndBlowGame() {
+  const [difficulty, setDifficulty] = useState(3);
+  const [secretCode, setSecretCode] = useState<number[]>([]);
+  const [currentGuess, setCurrentGuess] = useState("");
+  const [history, setHistory] = useState<{guess: string, hit: number, blow: number}[]>([]);
+  const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
   const [showRules, setShowRules] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState("");
 
-  // ゲームの初期化
-  const startNewGame = (digits = difficulty) => {
-    const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    const code = [];
-    
-    // 重複なしのランダムな数字を生成
-    for (let i = 0; i < digits; i++) {
-      const randomIndex = Math.floor(Math.random() * numbers.length);
-      code.push(numbers[randomIndex]);
-      numbers.splice(randomIndex, 1);
+  const generateSecretCode = (length: number) => {
+    let digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    let code: number[] = [];
+    for (let i = 0; i < length; i++) {
+      const randomIndex = Math.floor(Math.random() * digits.length);
+      code.push(digits[randomIndex]);
+      digits.splice(randomIndex, 1);
     }
-    
-    setSecretCode(code);
-    setCurrentGuess('');
-    setHistory([]);
-    setGameState('playing');
-    setFeedbackMessage('');
-    setDifficulty(digits);
+    return code;
   };
 
-  // 初回ロード時にゲーム開始
+  const startNewGame = (newDifficulty: number) => {
+    setDifficulty(newDifficulty);
+    setSecretCode(generateSecretCode(newDifficulty));
+    setCurrentGuess("");
+    setHistory([]);
+    setGameState('playing');
+    setFeedbackMessage("数字を選んでください");
+  };
+
   useEffect(() => {
-    startNewGame();
-  }, []);
+    startNewGame(difficulty);
+  }, []); // Run only on mount
 
-  // 入力処理
-  const handleNumberClick = (num) => {
+  const handleNumberClick = (num: number) => {
     if (gameState !== 'playing') return;
-    if (currentGuess.length >= difficulty) return;
-    if (currentGuess.includes(num.toString())) return; // 重複入力を防ぐ
-
-    setCurrentGuess((prev) => prev + num);
+    if (currentGuess.length < difficulty && !currentGuess.includes(num.toString())) {
+      setCurrentGuess(prev => prev + num.toString());
+      setFeedbackMessage("");
+    } else if (currentGuess.includes(num.toString())) {
+      setFeedbackMessage("同じ数字は使えません");
+    }
   };
 
   const handleDelete = () => {
-    setCurrentGuess((prev) => prev.slice(0, -1));
+    if (gameState !== 'playing') return;
+    setCurrentGuess(prev => prev.slice(0, -1));
+    setFeedbackMessage("");
   };
 
   const handleSubmit = () => {
-    if (currentGuess.length !== difficulty) {
-      setFeedbackMessage(`${difficulty}桁の数字を入力してください`);
-      return;
-    }
+    if (gameState !== 'playing' || currentGuess.length !== difficulty) return;
 
-    const guessArray = currentGuess.split('').map(Number);
     let hit = 0;
     let blow = 0;
+    const guessArray = currentGuess.split('').map(Number);
 
-    guessArray.forEach((num, index) => {
-      if (num === secretCode[index]) {
+    for (let i = 0; i < difficulty; i++) {
+      if (guessArray[i] === secretCode[i]) {
         hit++;
-      } else if (secretCode.includes(num)) {
+      } else if (secretCode.includes(guessArray[i])) {
         blow++;
       }
-    });
+    }
 
-    const newHistory = [
-      { guess: currentGuess, hit, blow },
-      ...history,
-    ];
-
-    setHistory(newHistory);
-    setCurrentGuess('');
-    setFeedbackMessage('');
+    setHistory([{ guess: currentGuess, hit, blow }, ...history]);
+    setCurrentGuess("");
 
     if (hit === difficulty) {
       setGameState('won');
+      setFeedbackMessage("クリア！");
+    } else {
+      setFeedbackMessage(`${hit} HIT / ${blow} BLOW`);
     }
   };
 
-  // キーボード入力をサポート（PC用）
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (gameState !== 'playing') return;
-      
-      if (e.key >= '0' && e.key <= '9') {
-        if (!currentGuess.includes(e.key) && currentGuess.length < difficulty) {
-          handleNumberClick(parseInt(e.key));
-        }
-      } else if (e.key === 'Backspace') {
-        handleDelete();
-      } else if (e.key === 'Enter') {
-        handleSubmit();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentGuess, gameState, difficulty]);
-
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white flex flex-col items-center py-8 px-4">
+    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col items-center py-8 px-4">
       
+      <div className="w-full max-w-md mb-4 flex items-center">
+        <Link href="/games" className="flex items-center text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          ゲーム一覧に戻る
+        </Link>
+      </div>
+
       {/* Header */}
       <header className="w-full max-w-md flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
