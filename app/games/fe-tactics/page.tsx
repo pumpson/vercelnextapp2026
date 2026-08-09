@@ -43,6 +43,7 @@ interface Unit {
     // 戦闘開始時に計算された最終ステータス（ベース＋強化＋装備）
     finalStats: {
         hp: number; atk: number; def: number; res: number; spd: number;
+        mov: number;
         critRate: number; // 必殺率(%)
     };
     build?: UnitBuild; // プレイヤーユニットのみ保持
@@ -127,12 +128,14 @@ export default function FETacticsGame() {
     ]);
     const [formation, setFormation] = useState<FormationType>('vanguard');
     const [isSetupPhase, setIsSetupPhase] = useState(true);
-    const [maxCost, setMaxCost] = useState(300); // 初期コスト上限300
+    const [maxUpgradeCost, setMaxUpgradeCost] = useState(100); // 強化コスト(初期100)
+    const DEPLOY_COST_LIMIT = 300; // 編成コスト上限(固定300)
 
     // UI State for Setup
     const [editingUnitIdx, setEditingUnitIdx] = useState<number>(0);
     const [showHelp, setShowHelp] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
+    const [selectedUnitDetail, setSelectedUnitDetail] = useState<Unit | null>(null);
 
     const isPlayingRef = useRef(false); // Ref to break loops safely
     const unitsRef = useRef<Unit[]>([]); // Ref to hold latest state for async AI loop
@@ -158,11 +161,14 @@ export default function FETacticsGame() {
         return (stageCount * (stageCount + 1)) / 2;
     };
 
-    const getTotalCost = () => {
+    // 分離されたコスト計算関数
+    const getDeployCost = () => {
+        return playerRoster.reduce((sum, jobId) => sum + JOBS[jobId].deployCost, 0);
+    };
+
+    const getUpgradeCost = () => {
         let total = 0;
-        playerRoster.forEach((jobId, idx) => {
-            total += JOBS[jobId].deployCost;
-            const build = playerBuilds[idx];
+        playerBuilds.forEach(build => {
             if (build) {
                 Object.values(build.addedStats).forEach(st => total += calculateCost(st));
                 total += WEAPONS.find(w => w.id === build.weaponId)?.cost || 0;
@@ -299,17 +305,18 @@ export default function FETacticsGame() {
         const currentVal = newBuilds[idx].addedStats[stat];
         const newVal = Math.max(0, currentVal + delta); // 下限は0
 
-        // 仮に更新してみてコストが最大コストを超える場合はキャンセル（減らす場合はOK）
+        // 仮に更新してみて強化コストが最大コストを超える場合はキャンセル（減らす場合はOK）
         if (delta > 0) {
             const costDiff = calculateCost(newVal) - calculateCost(currentVal);
-            if (getTotalCost() + costDiff > maxCost) return;
+            if (getUpgradeCost() + costDiff > maxUpgradeCost) return;
         }
 
         newBuilds[idx].addedStats = { ...newBuilds[idx].addedStats, [stat]: newVal };
         setPlayerBuilds(newBuilds);
     };
 
-    const currentTotalCost = getTotalCost();
+    const currentDeployCost = getDeployCost();
+    const currentUpgradeCost = getUpgradeCost();
 
     // --- AI Logic ---
     const getMoveArea = (unit: Unit, allUnits: Unit[]) => {
@@ -595,18 +602,17 @@ export default function FETacticsGame() {
 
             // 誰も行動可能(CT<=0)でないなら時間を進める
             if (minCt > 0) {
-                // 最も早く行動順が回ってくるユニットがちょうど CT<=0 になるようにtick幅を計算する（時間短縮）
-                // ただし、0除算を防ぐため最低1とする
-                let maxTick = 1;
+                // 最も早く行動順が回ってくるユニットがちょうど CT<=0 になるように、必要な最小tick幅を計算する
+                let minRequiredTick = Infinity;
                 curUnits.forEach(u => {
                     if (u.finalStats.spd > 0) {
                         const requiredTick = Math.ceil(u.ct / u.finalStats.spd);
-                        if (minCtUnit && u.id === minCtUnit.id) {
-                            maxTick = requiredTick;
+                        if (requiredTick < minRequiredTick) {
+                            minRequiredTick = requiredTick;
                         }
                     }
                 });
-                const tick = Math.max(1, maxTick);
+                const tick = Math.max(1, minRequiredTick === Infinity ? 1 : minRequiredTick);
 
                 const updatedUnits = curUnits.map(u => ({ ...u, ct: u.ct - (u.finalStats.spd * tick) }));
                 setUnits(prev => prev.map(p => {
@@ -621,8 +627,8 @@ export default function FETacticsGame() {
                 continue;
             }
 
-            // CT<=0 になったユニットが行動する（複数いる場合は素早さ順にしたいが、まずは見つかった順）
-            let actingUnit = curUnits.find(u => u.ct <= 0);
+            // CT<=0 になったユニットが行動する（複数いる場合は超過した分CTが小さいもの＝本来先に動くべきものを優先）
+            let actingUnit = curUnits.filter(u => u.ct <= 0).sort((a,b) => a.ct - b.ct)[0];
             if (!actingUnit) continue;
 
             // 行動前スキル処理（ターン開始として扱う）
@@ -665,7 +671,7 @@ export default function FETacticsGame() {
                     addLog('>>> 敗北...部隊は全滅した。', true);
                 } else {
                     addLog('>>> 勝利！敵を殲滅した！', true);
-                        setMaxCost(prev => prev + 10); // ステージクリアで最大コスト+10
+                    setMaxUpgradeCost(prev => prev + 10); // ステージクリアで強化コスト枠を+10
                     await sleep(1000);
                     setStage(s => s + 1);
                     initStage(stage + 1);
@@ -739,14 +745,17 @@ export default function FETacticsGame() {
                                 <div key={idx} className="aspect-square bg-slate-600 relative flex items-center justify-center">
                                     {/* Checker pattern logic inside cell optional, plain looks fine too */}
                                     {unit && (
-                                        <div className={`w-[85%] h-[85%] rounded-full flex flex-col items-center justify-center shadow-lg transition-transform duration-300 relative ${unit.job.color} ${isActive ? 'scale-110 ring-4 ring-white z-10' : ''} ${unit.isPlayer ? 'border-2 border-blue-200' : 'border-2 border-red-900 brightness-75'}`}>
+                                        <div
+                                            className={`cursor-pointer w-[85%] h-[85%] rounded-full flex flex-col items-center justify-center shadow-lg transition-transform duration-300 relative ${unit.job.color} ${isActive ? 'scale-110 ring-4 ring-white z-10' : ''} ${unit.isPlayer ? 'border-2 border-blue-200' : 'border-2 border-red-900 brightness-75'}`}
+                                            onClick={() => setSelectedUnitDetail(unit)}
+                                        >
                                             <span className="text-xl md:text-2xl drop-shadow-md">{unit.job.emoji}</span>
 
                                             {/* HP Bar */}
                                             <div className="absolute -bottom-1 w-3/4 h-1.5 bg-black/50 rounded overflow-hidden">
                                                 <div
                                                     className={`h-full ${unit.isPlayer ? 'bg-green-400' : 'bg-red-500'}`}
-                                                    style={{width: `${(unit.hp/unit.maxHp)*100}%`}}
+                                                    style={{width: `${Math.max(0, (unit.hp/unit.maxHp)*100)}%`}}
                                                 />
                                             </div>
                                         </div>
@@ -770,8 +779,13 @@ export default function FETacticsGame() {
                         <div className="space-y-4">
                             <div className="flex justify-between items-center border-b border-slate-700 pb-2">
                                 <h3 className="font-bold text-blue-300">編成・強化フェイズ</h3>
-                                <div className={`font-bold ${currentTotalCost > maxCost ? 'text-red-400' : 'text-green-400'}`}>
-                                    コスト: {currentTotalCost} / {maxCost}
+                                <div className="flex gap-4 text-sm">
+                                    <div className={`font-bold ${currentDeployCost > DEPLOY_COST_LIMIT ? 'text-red-400' : 'text-green-400'}`}>
+                                        出撃: {currentDeployCost} / {DEPLOY_COST_LIMIT}
+                                    </div>
+                                    <div className={`font-bold ${currentUpgradeCost > maxUpgradeCost ? 'text-red-400' : 'text-green-400'}`}>
+                                        強化: {currentUpgradeCost} / {maxUpgradeCost}
+                                    </div>
                                 </div>
                             </div>
 
@@ -808,7 +822,7 @@ export default function FETacticsGame() {
                                     {(Object.keys(JOBS) as JobId[]).map(key => {
                                         const jobBase = JOBS[key];
                                         // 敵専用のクラスは追加ボタンを表示しない
-                                        if (jobBase.deployCost === 80 && (key === 'cavalry' || key === 'droid')) return null;
+                                        if (key === 'cavalry' || key === 'droid') return null;
 
                                         return (
                                             <button
@@ -839,7 +853,7 @@ export default function FETacticsGame() {
                                                 const sType = stat as StatType;
                                                 const lvl = playerBuilds[editingUnitIdx].addedStats[sType];
                                                 const nextCost = lvl + 1; // 1段階上げるのに必要な追加コスト
-                                                const canAfford = currentTotalCost + nextCost <= maxCost;
+                                                const canAfford = currentUpgradeCost + nextCost <= maxUpgradeCost;
 
                                                 return (
                                                     <div key={stat} className="flex items-center justify-between text-sm">
@@ -862,7 +876,7 @@ export default function FETacticsGame() {
                                                     onChange={(e) => {
                                                         const newW = WEAPONS.find(w => w.id === e.target.value)!;
                                                         const oldW = WEAPONS.find(w => w.id === playerBuilds[editingUnitIdx].weaponId)!;
-                                                        if (currentTotalCost - oldW.cost + newW.cost <= maxCost) {
+                                                        if (currentUpgradeCost - oldW.cost + newW.cost <= maxUpgradeCost) {
                                                             updateBuild(editingUnitIdx, { weaponId: newW.id });
                                                         }
                                                     }}
@@ -881,7 +895,7 @@ export default function FETacticsGame() {
                                                     onChange={(e) => {
                                                         const newS = SKILLS.find(s => s.id === e.target.value)!;
                                                         const oldS = SKILLS.find(s => s.id === playerBuilds[editingUnitIdx].skillId)!;
-                                                        if (currentTotalCost - oldS.cost + newS.cost <= maxCost) {
+                                                        if (currentUpgradeCost - oldS.cost + newS.cost <= maxUpgradeCost) {
                                                             updateBuild(editingUnitIdx, { skillId: newS.id });
                                                         }
                                                     }}
@@ -897,7 +911,7 @@ export default function FETacticsGame() {
 
                             <button
                                 onClick={startGameLoop}
-                                disabled={currentTotalCost > maxCost || playerRoster.length === 0}
+                                disabled={currentDeployCost > DEPLOY_COST_LIMIT || currentUpgradeCost > maxUpgradeCost || playerRoster.length === 0}
                                 className="w-full mt-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:text-slate-400 text-white font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
                             >
                                 <Play size={20} /> 戦闘開始 (オート)
@@ -1038,6 +1052,83 @@ export default function FETacticsGame() {
                                     <li><strong>不動ボーナス</strong>: ユニットが移動せずにその場で攻撃した場合、最終ダメージが <strong>1.2倍</strong> になります。</li>
                                 </ul>
                             </section>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Unit Detail Modal */}
+            {selectedUnitDetail && (
+                <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-slate-800 border border-slate-600 rounded-xl w-full max-w-sm overflow-hidden shadow-2xl relative flex flex-col">
+                        <div className={`p-4 flex justify-between items-center ${selectedUnitDetail.isPlayer ? 'bg-blue-900/50' : 'bg-red-900/50'} border-b border-slate-700`}>
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="text-3xl">{selectedUnitDetail.job.emoji}</span>
+                                <div>
+                                    <div>{selectedUnitDetail.job.name}</div>
+                                    <div className={`text-xs ${selectedUnitDetail.isPlayer ? 'text-blue-300' : 'text-red-300'}`}>
+                                        {selectedUnitDetail.isPlayer ? 'Player Army' : 'Enemy Army'}
+                                    </div>
+                                </div>
+                            </h2>
+                            <button onClick={() => setSelectedUnitDetail(null)} className="p-1 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors self-start">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="flex justify-between items-end border-b border-slate-700 pb-2">
+                                <span className="text-slate-400 font-bold">HP</span>
+                                <span className="text-2xl font-black text-green-400">{selectedUnitDetail.hp} <span className="text-sm text-slate-500">/ {selectedUnitDetail.maxHp}</span></span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div className="flex justify-between bg-slate-900 p-2 rounded">
+                                    <span className="text-slate-400">ATK (攻撃)</span>
+                                    <span className="font-bold text-white">{selectedUnitDetail.finalStats.atk}</span>
+                                </div>
+                                <div className="flex justify-between bg-slate-900 p-2 rounded">
+                                    <span className="text-slate-400">DEF (防御)</span>
+                                    <span className="font-bold text-white">{selectedUnitDetail.finalStats.def}</span>
+                                </div>
+                                <div className="flex justify-between bg-slate-900 p-2 rounded">
+                                    <span className="text-slate-400">RES (魔防)</span>
+                                    <span className="font-bold text-white">{selectedUnitDetail.finalStats.res}</span>
+                                </div>
+                                <div className="flex justify-between bg-slate-900 p-2 rounded">
+                                    <span className="text-slate-400">SPD (速度)</span>
+                                    <span className="font-bold text-white">{selectedUnitDetail.finalStats.spd}</span>
+                                </div>
+                                <div className="flex justify-between bg-slate-900 p-2 rounded">
+                                    <span className="text-slate-400">MOV (移動)</span>
+                                    <span className="font-bold text-white">{selectedUnitDetail.finalStats.mov}</span>
+                                </div>
+                                <div className="flex justify-between bg-slate-900 p-2 rounded">
+                                    <span className="text-slate-400">CRIT (必殺)</span>
+                                    <span className="font-bold text-yellow-300">{selectedUnitDetail.finalStats.critRate}%</span>
+                                </div>
+                            </div>
+
+                            {selectedUnitDetail.build ? (
+                                <div className="space-y-2 mt-4 pt-4 border-t border-slate-700">
+                                    <div className="bg-slate-900 p-2 rounded border border-slate-700">
+                                        <div className="text-xs text-slate-400 mb-1">装備武器</div>
+                                        <div className="font-bold text-white text-sm">{WEAPONS.find(w => w.id === selectedUnitDetail.build!.weaponId)?.name || 'なし'}</div>
+                                    </div>
+                                    <div className="bg-slate-900 p-2 rounded border border-slate-700">
+                                        <div className="text-xs text-slate-400 mb-1">装備スキル</div>
+                                        <div className="font-bold text-white text-sm">{SKILLS.find(s => s.id === selectedUnitDetail.build!.skillId)?.name || 'なし'}</div>
+                                        <div className="text-xs text-slate-500 mt-1">{SKILLS.find(s => s.id === selectedUnitDetail.build!.skillId)?.desc || ''}</div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center text-slate-500 text-xs mt-4">
+                                    このユニットは装備を持っていません。
+                                </div>
+                            )}
+
+                            <div className="text-xs text-slate-500 pt-2 border-t border-slate-700">
+                                {selectedUnitDetail.job.desc}
+                            </div>
                         </div>
                     </div>
                 </div>
