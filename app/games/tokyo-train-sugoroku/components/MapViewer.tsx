@@ -103,6 +103,14 @@ export default function MapViewer({
   };
 
   // 線分の描画（重複を避けるために一意のペアを作成）
+  // Calculate angle to destination for the player
+  let destinationAngle = 0;
+  const pStation = MAP_DATA.find(s => s.id === playerStationId);
+  const dStation = MAP_DATA.find(s => s.id === destinationId);
+  if (pStation && dStation) {
+    destinationAngle = Math.atan2(dStation.y - pStation.y, dStation.x - pStation.x) * (180 / Math.PI);
+  }
+
   const drawnEdges = new Set<string>();
   const edges: React.ReactNode[] = [];
 
@@ -246,6 +254,12 @@ export default function MapViewer({
           if (station.id !== playerStationId) return null;
           return (
             <g key="player-marker" transform={`translate(${station.x - 15}, ${station.y - 15})`} className="pointer-events-none transition-transform duration-500">
+              {/* 目的地への矢印 */}
+              {dStation && (
+                <g transform={`rotate(${destinationAngle})`}>
+                  <path d="M 35,-10 L 55,0 L 35,10 Z" fill="#facc15" className="animate-pulse drop-shadow-md" />
+                </g>
+              )}
               <circle r="22" fill="#22c55e" stroke="#fff" strokeWidth="4" />
               <text y="7" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="bold">P</text>
             </g>

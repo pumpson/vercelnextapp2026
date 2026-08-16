@@ -5,7 +5,7 @@
 export type StationType = 'plus' | 'minus' | 'neutral';
 
 // 路線を表す型
-export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku' | 'denentoshi' | 'toyoko' | 'yokohama' | 'nambu' | 'yurikamome' | 'rinkai' | 'tokaido' | 'yurakucho' | 'ikegami' | 'seibuShinjuku' | 'seibuIkebukuro' | 'keihinTohoku' | 'tohoku' | 'tamaMonorail' | 'tobuTojo' | 'tobuSkytree' | 'joban' | 'keiseiMain' | 'keiseiOshiage' | 'keiyo' | 'musashino';
+export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku' | 'denentoshi' | 'toyoko' | 'yokohama' | 'nambu' | 'yurikamome' | 'rinkai' | 'tokaido' | 'yurakucho' | 'ikegami' | 'seibuShinjuku' | 'seibuIkebukuro' | 'keihinTohoku' | 'tohoku' | 'tamaMonorail' | 'tobuTojo' | 'tobuSkytree' | 'joban' | 'keiseiMain' | 'keiseiOshiage' | 'keiyo' | 'musashino' | 'hachiko' | 'sobu' | 'kawagoe' | 'sagami' | 'noda';
 
 // 駅のデータ構造
 export interface Station {
@@ -53,6 +53,11 @@ export const LineColors: Record<LineType, string> = {
   keiseiOshiage: '#FF69B4', // 京成押上線（ピンク）
   keiyo: '#C9242B',        // 京葉線（ワインレッド）
   musashino: '#F15A22',    // 武蔵野線（オレンジ）
+  hachiko: '#A8A39D',      // 八高線（グレー/茶色）
+  sobu: '#FFC20E',         // 総武線（黄色）
+  kawagoe: '#00AC9A',      // 川越線（緑）
+  sagami: '#00B2E5',       // 相模線（水色）
+  noda: '#00B2E5',         // 野田線（アーバンパークライン）（水色）
 };
 
 // --- マップデータ作成の設計方針 ---
@@ -594,5 +599,113 @@ if (stations["とうきょうスカイツリー"] && stations["押上"]) {
   if (!stations["とうきょうスカイツリー"].next.includes("押上")) stations["とうきょうスカイツリー"].next.push("押上");
   if (!stations["押上"].next.includes("とうきょうスカイツリー")) stations["押上"].next.push("とうきょうスカイツリー");
 }
+
+
+// 29. 常磐線 (上野〜松戸〜柏〜取手)
+buildLine('joban', [
+  { name: "上野" },
+  { name: "日暮里" },
+  { name: "北千住", x: 2600, y: -1400 },
+  { name: "松戸", x: 3200, y: -1800 },
+  { name: "柏", x: 4000, y: -2200 },
+  { name: "我孫子", x: 4600, y: -2400 },
+  { name: "取手", x: 5200, y: -2800 }
+]);
+
+// 30. 京成本線 (京成上野〜日暮里〜青砥〜京成船橋)
+buildLine('keiseiMain', [
+  { name: "京成上野", x: 1900, y: -300 },
+  { name: "日暮里" },
+  { name: "町屋", x: 2200, y: -800 },
+  { name: "青砥", x: 3200, y: -600 },
+  { name: "京成高砂", x: 3600, y: -600 },
+  { name: "京成船橋", x: 5000, y: -200 }
+]);
+
+// 31. 京成押上線 (押上〜青砥)
+buildLine('keiseiOshiage', [
+  { name: "押上" },
+  { name: "京成曳舟", x: 2800, y: -200 },
+  { name: "八広", x: 3000, y: -400 },
+  { name: "青砥" }
+]);
+
+// 32. 京葉線 (東京〜新木場〜舞浜〜海浜幕張)
+buildLine('keiyo', [
+  { name: "東京" },
+  { name: "八丁堀" },
+  { name: "新木場" },
+  { name: "葛西臨海公園", x: 3800, y: 2200 },
+  { name: "舞浜", x: 4400, y: 2400 },
+  { name: "新浦安", x: 5000, y: 2600 },
+  { name: "南船橋", x: 5800, y: 2800 },
+  { name: "海浜幕張", x: 6400, y: 2800 }
+]);
+
+// 33. 武蔵野線 (府中本町〜西国分寺〜南浦和〜西船橋)
+buildLine('musashino', [
+  { name: "府中本町", x: -2200, y: 1200 },
+  { name: "西国分寺", x: -2200, y: 400 },
+  { name: "新秋津", x: -2200, y: -1000 },
+  { name: "北朝霞", x: -1000, y: -1600 },
+  { name: "武蔵浦和" },
+  { name: "南浦和", x: 1600, y: -2200 },
+  { name: "東川口", x: 2800, y: -2200 },
+  { name: "南越谷", x: 3800, y: -2200 },
+  { name: "新松戸", x: 4800, y: -1800 },
+  { name: "西船橋", x: 5000, y: 200 }
+]);
+
+// 34. 八高線 (八王子〜東飯能〜高麗川)
+buildLine('hachiko', [
+  { name: "八王子" },
+  { name: "拝島", x: -4200, y: 600 },
+  { name: "東飯能", x: -4800, y: -1000 },
+  { name: "高麗川", x: -4800, y: -1600 }
+]);
+
+// 35. 総武線 (秋葉原〜千葉)
+buildLine('sobu', [
+  { name: "秋葉原" },
+  { name: "浅草橋", x: 2600, y: 600 },
+  { name: "錦糸町", x: 3200, y: 600 },
+  { name: "新小岩", x: 3800, y: 600 },
+  { name: "市川", x: 4600, y: 600 },
+  { name: "西船橋" },
+  { name: "船橋", x: 5600, y: 200 },
+  { name: "津田沼", x: 6400, y: 200 },
+  { name: "幕張本郷", x: 7000, y: 200 },
+  { name: "千葉", x: 7800, y: 200 }
+]);
+
+// 36. 川越線 (大宮〜川越〜高麗川)
+buildLine('kawagoe', [
+  { name: "大宮" },
+  { name: "日進", x: 400, y: -2800 },
+  { name: "川越", x: -600, y: -2800 },
+  { name: "的場", x: -1600, y: -2800 },
+  { name: "高麗川" }
+]);
+
+// 37. 相模線 (橋本〜海老名〜茅ヶ崎)
+buildLine('sagami', [
+  { name: "橋本" },
+  { name: "上溝", x: -3600, y: 2800 },
+  { name: "海老名", x: -3400, y: 3800 },
+  { name: "厚木", x: -3400, y: 4200 },
+  { name: "寒川", x: -2800, y: 4600 },
+  { name: "茅ヶ崎" }
+]);
+
+// 38. 東武野田線 / アーバンパークライン (大宮〜柏〜船橋)
+buildLine('noda', [
+  { name: "大宮" },
+  { name: "岩槻", x: 1800, y: -2800 },
+  { name: "春日部" },
+  { name: "野田市", x: 3600, y: -2600 },
+  { name: "柏" },
+  { name: "新鎌ヶ谷", x: 4800, y: -1000 },
+  { name: "船橋" }
+]);
 
 export const MAP_DATA: Station[] = Object.values(stations);
