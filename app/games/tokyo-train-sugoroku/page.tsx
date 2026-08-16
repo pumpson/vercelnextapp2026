@@ -21,12 +21,8 @@ export default function TokyoTrainSugorokuPage() {
     return MAP_DATA.find(s => s.id === id)?.name || id;
   };
 
-  // 分岐選択可能な駅のリストを取得
   const getSelectableStations = () => {
-    // プレイヤーの移動中、または分岐選択中であれば、現在位置の隣接駅を選択可能にする
-    if (gameState.phase !== 'player_move' && gameState.phase !== 'player_branch') return [];
-    const current = MAP_DATA.find(s => s.id === gameState.player.currentStationId);
-    return current ? current.next : [];
+    return gameState.selectableStations;
   };
 
   return (
@@ -55,28 +51,7 @@ export default function TokyoTrainSugorokuPage() {
             onStationClick={gameState.movePlayerTo}
           />
 
-          {/* 中央のオーバーレイUI（分岐選択や結果表示など） */}
-          {gameState.phase === 'player_branch' && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-900/90 p-6 rounded-2xl border border-blue-500 shadow-2xl text-center backdrop-blur-sm z-10">
-              <h3 className="text-xl font-bold mb-4 text-blue-400 flex items-center justify-center">
-                <Navigation className="w-6 h-6 mr-2" />
-                進行方向を選択してください
-              </h3>
-              <p className="mb-4 text-gray-300">マップ上の光っている駅をクリックするか、下のボタンから選んでください。</p>
-              <div className="flex flex-wrap justify-center gap-3">
-                {getSelectableStations().map(nextId => (
-                  <button
-                    key={nextId}
-                    onClick={() => gameState.movePlayerTo(nextId)}
-                    className="px-6 py-3 bg-gray-800 hover:bg-blue-600 border border-gray-600 hover:border-blue-400 rounded-lg transition-colors font-bold"
-                  >
-                    {getStationName(nextId)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
+          {/* 中央のオーバーレイUI（結果表示など） */}
           {gameState.phase === 'player_action' && (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-900/90 p-6 rounded-2xl border border-green-500 shadow-2xl text-center backdrop-blur-sm z-10 min-w-[300px] pointer-events-none">
               <h3 className="text-2xl font-bold text-green-400 animate-pulse">行動終了</h3>
@@ -177,12 +152,21 @@ export default function TokyoTrainSugorokuPage() {
                 </button>
               )}
 
-              {gameState.phase === 'player_move' && (
+              {gameState.phase === 'player_select_destination' && (
                 <div className="bg-blue-900/40 border border-blue-800 p-4 rounded-xl text-center">
                   <div className="text-sm text-blue-300 mb-1">出た目</div>
                   <div className="text-4xl font-bold text-white mb-2">{gameState.diceResult}</div>
+                  <div className="text-sm text-yellow-300 animate-pulse mt-2">
+                    光っている駅をタップ！
+                  </div>
+                </div>
+              )}
+
+              {(gameState.phase === 'player_animating' || gameState.phase === 'cpu_move') && (
+                <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl text-center">
+                  <div className="text-sm text-gray-400 mb-1">移動中...</div>
                   <div className="text-sm text-gray-400">
-                    残り <span className="text-blue-400 font-bold text-lg">{gameState.remainingMoves}</span> マス
+                    残り <span className="text-white font-bold text-lg">{gameState.remainingMoves}</span> マス
                   </div>
                 </div>
               )}
