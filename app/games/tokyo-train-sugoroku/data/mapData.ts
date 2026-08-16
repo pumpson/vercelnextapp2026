@@ -54,7 +54,7 @@ export const LineColors: Record<LineType, string> = {
 // 全体が見やすいよう座標系を広く（キャンバスサイズ 2000x2000 を想定）
 const CENTER_X = 1000;
 const CENTER_Y = 1000;
-const RADIUS = 1400; // 山手線の半径を大きく
+const RADIUS = 1200; // 山手線の半径を大きく
 
 // 山手線の駅リスト（時計回り）
 const yamanoteStationNames = [
@@ -124,6 +124,13 @@ const buildLine = (lineType: LineType, stationsInfo: {name: string, x?: number, 
             if (!stations[currentId].lines.includes(lineType)) {
                 stations[currentId].lines.push(lineType);
             }
+            // 位置情報が後から提供された場合は更新する
+            if (info.x !== undefined && stations[currentId].x === undefined) {
+                stations[currentId].x = info.x;
+            }
+            if (info.y !== undefined && stations[currentId].y === undefined) {
+                stations[currentId].y = info.y;
+            }
         } else {
             // 新規の駅
             currentId = `${lineType}_${i}`;
@@ -154,35 +161,35 @@ const buildLine = (lineType: LineType, stationsInfo: {name: string, x?: number, 
 // ユーザー要望により、神田〜上野間は山手線（神田→秋葉原→御徒町→上野）の経路に統一する
 buildLine('ginza', [
   { name: "渋谷" },
-  { name: "表参道", x: CENTER_X - 7200, y: CENTER_Y + 1600 },
-  { name: "外苑前", x: CENTER_X - 4800, y: CENTER_Y + 2400 },
-  { name: "赤坂見附", x: CENTER_X - 1600, y: CENTER_Y + 3200 },
-  { name: "溜池山王", x: CENTER_X + 800, y: CENTER_Y + 4000 },
+  { name: "表参道", x: CENTER_X - 900, y: CENTER_Y + 200 },
+  { name: "外苑前", x: CENTER_X - 600, y: CENTER_Y + 300 },
+  { name: "赤坂見附", x: CENTER_X - 200, y: CENTER_Y + 400 },
+  { name: "溜池山王", x: CENTER_X + 100, y: CENTER_Y + 500 },
   { name: "新橋" },
-  { name: "銀座", x: CENTER_X + 7200, y: CENTER_Y + 6400 },
-  { name: "日本橋", x: CENTER_X + 8800, y: CENTER_Y + 3200 },
+  { name: "銀座", x: CENTER_X + 900, y: CENTER_Y + 800 },
+  { name: "日本橋", x: CENTER_X + 1100, y: CENTER_Y + 400 },
   { name: "神田" },
   { name: "秋葉原" }, // 並行路線を統一
   { name: "御徒町" }, // 並行路線を統一
   { name: "上野" },
-  { name: "浅草", x: CENTER_X + 12800, y: CENTER_Y - 8000 },
+  { name: "浅草", x: CENTER_X + 1600, y: CENTER_Y - 1000 },
 ]);
 
 // 3. 丸ノ内線の駅を生成 (池袋〜新宿)
 buildLine('marunouchi', [
   { name: "池袋" },
-  { name: "茗荷谷", x: CENTER_X + 2400, y: CENTER_Y - 6400 },
-  { name: "後楽園", x: CENTER_X + 4800, y: CENTER_Y - 4000 },
-  { name: "御茶ノ水", x: CENTER_X + 7200, y: CENTER_Y - 1600 },
-  { name: "大手町", x: CENTER_X + 9600, y: CENTER_Y + 800 },
+  { name: "茗荷谷", x: CENTER_X + 300, y: CENTER_Y - 800 },
+  { name: "後楽園", x: CENTER_X + 600, y: CENTER_Y - 500 },
+  { name: "御茶ノ水", x: CENTER_X + 900, y: CENTER_Y - 200 },
+  { name: "大手町", x: CENTER_X + 1200, y: CENTER_Y + 100 },
   { name: "東京" },
   { name: "銀座" },
-  { name: "霞ケ関", x: CENTER_X + 3200, y: CENTER_Y + 7200 },
-  { name: "国会議事堂前", x: CENTER_X, y: CENTER_Y + 5600 },
+  { name: "霞ケ関", x: CENTER_X + 400, y: CENTER_Y + 900 },
+  { name: "国会議事堂前", x: CENTER_X, y: CENTER_Y + 700 },
   { name: "赤坂見附" },
-  { name: "四ツ谷", x: CENTER_X - 4800, y: CENTER_Y + 800 },
-  { name: "新宿御苑前", x: CENTER_X - 8000, y: CENTER_Y - 800 },
-  { name: "新宿三丁目", x: CENTER_X - 9600, y: CENTER_Y - 1600 },
+  { name: "四ツ谷", x: CENTER_X - 600, y: CENTER_Y + 100 },
+  { name: "新宿御苑前", x: CENTER_X - 1000, y: CENTER_Y - 100 },
+  { name: "新宿三丁目", x: CENTER_X - 1200, y: CENTER_Y - 200 },
   { name: "新宿" },
 ]);
 
@@ -193,61 +200,61 @@ buildLine('chuo', [
   { name: "御茶ノ水" },
   { name: "四ツ谷" },
   { name: "新宿" },
-  { name: "中野", x: CENTER_X - 13600, y: CENTER_Y - 3200 },
-  { name: "高円寺", x: CENTER_X - 16000, y: CENTER_Y - 4000 },
-  { name: "阿佐ヶ谷", x: CENTER_X - 18400, y: CENTER_Y - 4800 },
-  { name: "荻窪", x: CENTER_X - 20800, y: CENTER_Y - 5600 },
-  { name: "吉祥寺", x: CENTER_X - 24000, y: CENTER_Y - 6400 },
-  { name: "三鷹", x: CENTER_X - 27200, y: CENTER_Y - 7200 },
-  { name: "国分寺", x: CENTER_X - 30400, y: CENTER_Y - 8000 },
-  { name: "立川", x: CENTER_X - 35200, y: CENTER_Y - 8800 },
-  { name: "八王子", x: CENTER_X - 40000, y: CENTER_Y - 9600 },
+  { name: "中野", x: CENTER_X - 1700, y: CENTER_Y - 400 },
+  { name: "高円寺", x: CENTER_X - 2000, y: CENTER_Y - 500 },
+  { name: "阿佐ヶ谷", x: CENTER_X - 2300, y: CENTER_Y - 600 },
+  { name: "荻窪", x: CENTER_X - 2600, y: CENTER_Y - 700 },
+  { name: "吉祥寺", x: CENTER_X - 3000, y: CENTER_Y - 800 },
+  { name: "三鷹", x: CENTER_X - 3400, y: CENTER_Y - 900 },
+  { name: "国分寺", x: CENTER_X - 3800, y: CENTER_Y - 1000 },
+  { name: "立川", x: CENTER_X - 4400, y: CENTER_Y - 1100 },
+  { name: "八王子", x: CENTER_X - 5000, y: CENTER_Y - 1200 },
 ]);
 
 // 5. 小田急線の駅を生成 (新宿〜町田方面)
 buildLine('odakyu', [
   { name: "新宿" },
-  { name: "代々木上原", x: CENTER_X - 12800, y: CENTER_Y + 1600 },
-  { name: "下北沢", x: CENTER_X - 15200, y: CENTER_Y + 3200 },
-  { name: "経堂", x: CENTER_X - 18400, y: CENTER_Y + 4800 },
-  { name: "成城学園前", x: CENTER_X - 22400, y: CENTER_Y + 7200 },
-  { name: "登戸", x: CENTER_X - 25600, y: CENTER_Y + 9600 },
-  { name: "新百合ヶ丘", x: CENTER_X - 28800, y: CENTER_Y + 12000 },
-  { name: "町田", x: CENTER_X - 32000, y: CENTER_Y + 15200 },
-  { name: "相模大野", x: CENTER_X - 33600, y: CENTER_Y + 16800 },
-  { name: "本厚木", x: CENTER_X - 38400, y: CENTER_Y + 18400 },
+  { name: "代々木上原", x: CENTER_X - 1600, y: CENTER_Y + 200 },
+  { name: "下北沢", x: CENTER_X - 1900, y: CENTER_Y + 400 },
+  { name: "経堂", x: CENTER_X - 2300, y: CENTER_Y + 600 },
+  { name: "成城学園前", x: CENTER_X - 2800, y: CENTER_Y + 900 },
+  { name: "登戸", x: CENTER_X - 3200, y: CENTER_Y + 1200 },
+  { name: "新百合ヶ丘", x: CENTER_X - 3600, y: CENTER_Y + 1500 },
+  { name: "町田", x: CENTER_X - 4000, y: CENTER_Y + 1900 },
+  { name: "相模大野", x: CENTER_X - 4200, y: CENTER_Y + 2100 },
+  { name: "本厚木", x: CENTER_X - 4800, y: CENTER_Y + 2300 },
   { name: "小田原" }, // 後で東海道線と繋ぐ
 ]);
 
 // 小田急江ノ島線（相模大野〜片瀬江ノ島）
 buildLine('odakyu', [
   { name: "相模大野" },
-  { name: "中央林間", x: CENTER_X - 35200, y: CENTER_Y + 18400 },
-  { name: "大和", x: CENTER_X - 36800, y: CENTER_Y + 22400 },
+  { name: "中央林間", x: CENTER_X - 4400, y: CENTER_Y + 2300 },
+  { name: "大和", x: CENTER_X - 4600, y: CENTER_Y + 2800 },
   { name: "藤沢" }, // 後で東海道線と繋ぐ
-  { name: "片瀬江ノ島", x: CENTER_X - 38400, y: CENTER_Y + 33600 }
+  { name: "片瀬江ノ島", x: CENTER_X - 4800, y: CENTER_Y + 4200 }
 ]);
 
 // 6. 京王線の駅を生成 (新宿〜八王子方面)
 buildLine('keio', [
   { name: "新宿" },
-  { name: "笹塚", x: CENTER_X - 13600, y: CENTER_Y },
-  { name: "明大前", x: CENTER_X - 16000, y: CENTER_Y },
-  { name: "千歳烏山", x: CENTER_X - 20000, y: CENTER_Y + 800 },
-  { name: "調布", x: CENTER_X - 25600, y: CENTER_Y + 1600 },
-  { name: "府中", x: CENTER_X - 30400, y: CENTER_Y + 2400 },
-  { name: "分倍河原", x: CENTER_X - 32000, y: CENTER_Y + 1920 },
-  { name: "聖蹟桜ヶ丘", x: CENTER_X - 33600, y: CENTER_Y + 1600 },
-  { name: "高幡不動", x: CENTER_X - 36800, y: CENTER_Y + 800 },
+  { name: "笹塚", x: CENTER_X - 1700, y: CENTER_Y },
+  { name: "明大前", x: CENTER_X - 2000, y: CENTER_Y },
+  { name: "千歳烏山", x: CENTER_X - 2500, y: CENTER_Y + 100 },
+  { name: "調布", x: CENTER_X - 3200, y: CENTER_Y + 200 },
+  { name: "府中", x: CENTER_X - 3800, y: CENTER_Y + 300 },
+  { name: "分倍河原", x: CENTER_X - 4000, y: CENTER_Y + 240 },
+  { name: "聖蹟桜ヶ丘", x: CENTER_X - 4200, y: CENTER_Y + 200 },
+  { name: "高幡不動", x: CENTER_X - 4600, y: CENTER_Y + 100 },
   { name: "八王子" }, // 中央線と共有
 ]);
 
 // 京王相模原線
 buildLine('keio', [
   { name: "調布" },
-  { name: "京王多摩川", x: CENTER_X - 27200, y: CENTER_Y + 3200 },
-  { name: "京王稲田堤", x: CENTER_X - 28800, y: CENTER_Y + 5600 }, // 南武線稲田堤と隣接させる
-  { name: "京王多摩センター", x: CENTER_X - 32000, y: CENTER_Y + 8000 },
+  { name: "京王多摩川", x: CENTER_X - 3400, y: CENTER_Y + 400 },
+  { name: "京王稲田堤", x: CENTER_X - 3600, y: CENTER_Y + 700 }, // 南武線稲田堤と隣接させる
+  { name: "京王多摩センター", x: CENTER_X - 4000, y: CENTER_Y + 1000 },
   { name: "橋本" }
 ]);
 if (stations["京王稲田堤"] && stations["稲田堤"]) {
@@ -259,29 +266,29 @@ if (stations["京王稲田堤"] && stations["稲田堤"]) {
 buildLine('tozai', [
   { name: "中野" },
   { name: "高田馬場" },
-  { name: "飯田橋", x: CENTER_X + 1600, y: CENTER_Y - 2400 },
-  { name: "九段下", x: CENTER_X + 4000, y: CENTER_Y - 800 },
+  { name: "飯田橋", x: CENTER_X + 200, y: CENTER_Y - 300 },
+  { name: "九段下", x: CENTER_X + 500, y: CENTER_Y - 100 },
   { name: "大手町" },
   { name: "日本橋" },
-  { name: "茅場町", x: CENTER_X + 11200, y: CENTER_Y + 4000 },
-  { name: "門前仲町", x: CENTER_X + 13600, y: CENTER_Y + 5600 },
-  { name: "西船橋", x: CENTER_X + 24000, y: CENTER_Y - 1600 },
+  { name: "茅場町", x: CENTER_X + 1400, y: CENTER_Y + 500 },
+  { name: "門前仲町", x: CENTER_X + 1700, y: CENTER_Y + 700 },
+  { name: "西船橋", x: CENTER_X + 3000, y: CENTER_Y - 200 },
 ]);
 
 // 8. 千代田線 (代々木上原〜綾瀬方面)
 buildLine('chiyoda', [
   { name: "代々木上原" },
   { name: "表参道" },
-  { name: "乃木坂", x: CENTER_X - 5600, y: CENTER_Y + 4800 },
-  { name: "赤坂", x: CENTER_X - 2400, y: CENTER_Y + 5600 },
+  { name: "乃木坂", x: CENTER_X - 700, y: CENTER_Y + 600 },
+  { name: "赤坂", x: CENTER_X - 300, y: CENTER_Y + 700 },
   { name: "国会議事堂前" },
   { name: "霞ケ関" },
-  { name: "日比谷", x: CENTER_X + 5600, y: CENTER_Y + 5600 },
+  { name: "日比谷", x: CENTER_X + 700, y: CENTER_Y + 700 },
   { name: "大手町" },
-  { name: "新御茶ノ水", x: CENTER_X + 8000, y: CENTER_Y - 3200 }, // 御茶ノ水と近いが別駅とする
+  { name: "新御茶ノ水", x: CENTER_X + 1000, y: CENTER_Y - 400 }, // 御茶ノ水と近いが別駅とする
   { name: "西日暮里" },
-  { name: "北千住", x: CENTER_X + 16000, y: CENTER_Y - 11200 },
-  { name: "綾瀬", x: CENTER_X + 19200, y: CENTER_Y - 12800 },
+  { name: "北千住", x: CENTER_X + 2000, y: CENTER_Y - 1400 },
+  { name: "綾瀬", x: CENTER_X + 2400, y: CENTER_Y - 1600 },
 ]);
 
 // 9. 半蔵門線 (渋谷〜押上方面)
@@ -289,16 +296,16 @@ buildLine('chiyoda', [
 buildLine('hanzomon', [
   { name: "渋谷" },
   { name: "表参道" },
-  { name: "青山一丁目", x: CENTER_X - 4000, y: CENTER_Y + 4000 },
-  { name: "永田町", x: CENTER_X - 800, y: CENTER_Y + 4800 }, // 赤坂見附に近いが独立
-  { name: "半蔵門", x: CENTER_X + 1600, y: CENTER_Y + 2400 },
+  { name: "青山一丁目", x: CENTER_X - 500, y: CENTER_Y + 500 },
+  { name: "永田町", x: CENTER_X - 100, y: CENTER_Y + 600 }, // 赤坂見附に近いが独立
+  { name: "半蔵門", x: CENTER_X + 200, y: CENTER_Y + 300 },
   { name: "九段下" },
-  { name: "神保町", x: CENTER_X + 5600, y: CENTER_Y - 800 },
+  { name: "神保町", x: CENTER_X + 700, y: CENTER_Y - 100 },
   { name: "大手町" },
-  { name: "三越前", x: CENTER_X + 10400, y: CENTER_Y + 1600 },
-  { name: "清澄白河", x: CENTER_X + 14400, y: CENTER_Y + 3200 },
-  { name: "錦糸町", x: CENTER_X + 17600, y: CENTER_Y - 1600 },
-  { name: "押上", x: CENTER_X + 20800, y: CENTER_Y - 4800 },
+  { name: "三越前", x: CENTER_X + 1300, y: CENTER_Y + 200 },
+  { name: "清澄白河", x: CENTER_X + 1800, y: CENTER_Y + 400 },
+  { name: "錦糸町", x: CENTER_X + 2200, y: CENTER_Y - 200 },
+  { name: "押上", x: CENTER_X + 2600, y: CENTER_Y - 600 },
 ]);
 
 // 10. 埼京線 (大崎〜大宮方面)
@@ -308,77 +315,77 @@ buildLine('saikyo', [
   { name: "渋谷" },
   { name: "新宿" },
   { name: "池袋" },
-  { name: "板橋", x: CENTER_X - 3200, y: CENTER_Y - 12800 },
-  { name: "十条", x: CENTER_X - 1600, y: CENTER_Y - 15200 },
-  { name: "赤羽", x: CENTER_X, y: CENTER_Y - 17600 },
-  { name: "戸田公園", x: CENTER_X, y: CENTER_Y - 20800 },
-  { name: "武蔵浦和", x: CENTER_X, y: CENTER_Y - 24000 },
-  { name: "大宮", x: CENTER_X, y: CENTER_Y - 28800 },
+  { name: "板橋", x: CENTER_X - 400, y: CENTER_Y - 1600 },
+  { name: "十条", x: CENTER_X - 200, y: CENTER_Y - 1900 },
+  { name: "赤羽", x: CENTER_X, y: CENTER_Y - 2200 },
+  { name: "戸田公園", x: CENTER_X, y: CENTER_Y - 2600 },
+  { name: "武蔵浦和", x: CENTER_X, y: CENTER_Y - 3000 },
+  { name: "大宮", x: CENTER_X, y: CENTER_Y - 3600 },
 ]);
 
 // 11. 湘南新宿ライン (横浜〜赤羽方面)
 buildLine('shonan', [
-  { name: "横浜", x: CENTER_X - 16000, y: CENTER_Y + 24000 },
-  { name: "武蔵小杉", x: CENTER_X - 8000, y: CENTER_Y + 17600 },
+  { name: "横浜", x: CENTER_X - 2000, y: CENTER_Y + 3000 },
+  { name: "武蔵小杉", x: CENTER_X - 1000, y: CENTER_Y + 2200 },
   { name: "大崎" },
   { name: "恵比寿" },
   { name: "渋谷" },
   { name: "新宿" },
   { name: "池袋" },
   { name: "赤羽" },
-  { name: "浦和", x: CENTER_X + 4800, y: CENTER_Y - 22400 },
+  { name: "浦和", x: CENTER_X + 600, y: CENTER_Y - 2800 },
   { name: "大宮" },
 ]);
 
 // 12. 南北線 (目黒〜赤羽岩淵方面)
 buildLine('namboku', [
   { name: "目黒" },
-  { name: "白金台", x: CENTER_X + 1600, y: CENTER_Y + 12800 },
-  { name: "白金高輪", x: CENTER_X + 4000, y: CENTER_Y + 11200 },
-  { name: "麻布十番", x: CENTER_X + 4800, y: CENTER_Y + 9600 },
-  { name: "六本木一丁目", x: CENTER_X + 2400, y: CENTER_Y + 8000 },
+  { name: "白金台", x: CENTER_X + 200, y: CENTER_Y + 1600 },
+  { name: "白金高輪", x: CENTER_X + 500, y: CENTER_Y + 1400 },
+  { name: "麻布十番", x: CENTER_X + 600, y: CENTER_Y + 1200 },
+  { name: "六本木一丁目", x: CENTER_X + 300, y: CENTER_Y + 1000 },
   { name: "溜池山王" },
   { name: "永田町" },
   { name: "四ツ谷" },
-  { name: "市ヶ谷", x: CENTER_X - 800, y: CENTER_Y - 800 },
+  { name: "市ヶ谷", x: CENTER_X - 100, y: CENTER_Y - 100 },
   { name: "飯田橋" },
   { name: "後楽園" },
-  { name: "東大前", x: CENTER_X + 5600, y: CENTER_Y - 7200 },
+  { name: "東大前", x: CENTER_X + 700, y: CENTER_Y - 900 },
   { name: "駒込" },
-  { name: "王子", x: CENTER_X + 8000, y: CENTER_Y - 14400 },
-  { name: "赤羽岩淵", x: CENTER_X + 6400, y: CENTER_Y - 17600 },
+  { name: "王子", x: CENTER_X + 1000, y: CENTER_Y - 1800 },
+  { name: "赤羽岩淵", x: CENTER_X + 800, y: CENTER_Y - 2200 },
 ]);
 
 // 13. 東急田園都市線 (渋谷〜中央林間)
 buildLine('denentoshi', [
   { name: "渋谷" },
-  { name: "三軒茶屋", x: CENTER_X - 14400, y: CENTER_Y + 5600 },
-  { name: "二子玉川", x: CENTER_X - 20800, y: CENTER_Y + 9600 },
-  { name: "溝の口", x: CENTER_X - 24000, y: CENTER_Y + 11200 },
-  { name: "たまプラーザ", x: CENTER_X - 27200, y: CENTER_Y + 13600 },
-  { name: "青葉台", x: CENTER_X - 30400, y: CENTER_Y + 16000 },
-  { name: "長津田", x: CENTER_X - 32800, y: CENTER_Y + 17600 },
+  { name: "三軒茶屋", x: CENTER_X - 1800, y: CENTER_Y + 700 },
+  { name: "二子玉川", x: CENTER_X - 2600, y: CENTER_Y + 1200 },
+  { name: "溝の口", x: CENTER_X - 3000, y: CENTER_Y + 1400 },
+  { name: "たまプラーザ", x: CENTER_X - 3400, y: CENTER_Y + 1700 },
+  { name: "青葉台", x: CENTER_X - 3800, y: CENTER_Y + 2000 },
+  { name: "長津田", x: CENTER_X - 4100, y: CENTER_Y + 2200 },
   { name: "中央林間" },
 ]);
 
 // 14. 東急東横線 (渋谷〜横浜)
 buildLine('toyoko', [
   { name: "渋谷" },
-  { name: "中目黒", x: CENTER_X - 11200, y: CENTER_Y + 9600 },
-  { name: "自由が丘", x: CENTER_X - 12000, y: CENTER_Y + 13600 },
+  { name: "中目黒", x: CENTER_X - 1400, y: CENTER_Y + 1200 },
+  { name: "自由が丘", x: CENTER_X - 1500, y: CENTER_Y + 1700 },
   { name: "武蔵小杉" },
-  { name: "日吉", x: CENTER_X - 9600, y: CENTER_Y + 20800 },
-  { name: "菊名", x: CENTER_X - 12800, y: CENTER_Y + 22400 },
+  { name: "日吉", x: CENTER_X - 1200, y: CENTER_Y + 2600 },
+  { name: "菊名", x: CENTER_X - 1600, y: CENTER_Y + 2800 },
   { name: "横浜" },
 ]);
 
 // 15. JR横浜線 (八王子〜横浜)
 buildLine('yokohama', [
   { name: "八王子" },
-  { name: "橋本", x: CENTER_X - 36800, y: CENTER_Y + 11200 },
+  { name: "橋本", x: CENTER_X - 4600, y: CENTER_Y + 1400 },
   { name: "町田" },
   { name: "長津田" },
-  { name: "新横浜", x: CENTER_X - 17600, y: CENTER_Y + 20800 },
+  { name: "新横浜", x: CENTER_X - 2200, y: CENTER_Y + 2600 },
   { name: "菊名" },
   { name: "横浜" },
 ]);
@@ -387,34 +394,34 @@ buildLine('yokohama', [
 buildLine('nambu', [
   { name: "立川" },
   { name: "分倍河原" },
-  { name: "稲田堤", x: CENTER_X - 28800, y: CENTER_Y + 7200 },
+  { name: "稲田堤", x: CENTER_X - 3600, y: CENTER_Y + 900 },
   { name: "登戸" },
   { name: "溝の口" },
   { name: "武蔵小杉" },
-  { name: "川崎", x: CENTER_X - 3200, y: CENTER_Y + 20800 },
+  { name: "川崎", x: CENTER_X - 400, y: CENTER_Y + 2600 },
 ]);
 
 // 17. ゆりかもめ (新橋〜豊洲)
 buildLine('yurikamome', [
   { name: "新橋" },
-  { name: "汐留", x: CENTER_X + 9600, y: CENTER_Y + 9600 },
-  { name: "お台場海浜公園", x: CENTER_X + 11200, y: CENTER_Y + 14400 },
-  { name: "台場", x: CENTER_X + 9600, y: CENTER_Y + 16000 },
-  { name: "東京国際クルーズターミナル", x: CENTER_X + 12000, y: CENTER_Y + 18400 },
-  { name: "東京ビッグサイト", x: CENTER_X + 14400, y: CENTER_Y + 16000 },
-  { name: "有明", x: CENTER_X + 16000, y: CENTER_Y + 14400 },
-  { name: "豊洲", x: CENTER_X + 19200, y: CENTER_Y + 9600 },
+  { name: "汐留", x: CENTER_X + 1200, y: CENTER_Y + 1200 },
+  { name: "お台場海浜公園", x: CENTER_X + 1400, y: CENTER_Y + 1800 },
+  { name: "台場", x: CENTER_X + 1200, y: CENTER_Y + 2000 },
+  { name: "東京国際クルーズターミナル", x: CENTER_X + 1500, y: CENTER_Y + 2300 },
+  { name: "東京ビッグサイト", x: CENTER_X + 1800, y: CENTER_Y + 2000 },
+  { name: "有明", x: CENTER_X + 2000, y: CENTER_Y + 1800 },
+  { name: "豊洲", x: CENTER_X + 2400, y: CENTER_Y + 1200 },
 ]);
 
 // 18. りんかい線 (大崎〜新木場)
 buildLine('rinkai', [
   { name: "大崎" },
-  { name: "大井町", x: CENTER_X - 3200, y: CENTER_Y + 16000 },
-  { name: "品川シーサイド", x: CENTER_X, y: CENTER_Y + 17600 },
-  { name: "天王洲アイル", x: CENTER_X + 3200, y: CENTER_Y + 16000 },
-  { name: "東京テレポート", x: CENTER_X + 11200, y: CENTER_Y + 17600 },
-  { name: "国際展示場", x: CENTER_X + 15200, y: CENTER_Y + 15200 }, // 有明の近く
-  { name: "新木場", x: CENTER_X + 20800, y: CENTER_Y + 12800 },
+  { name: "大井町", x: CENTER_X - 400, y: CENTER_Y + 2000 },
+  { name: "品川シーサイド", x: CENTER_X, y: CENTER_Y + 2200 },
+  { name: "天王洲アイル", x: CENTER_X + 400, y: CENTER_Y + 2000 },
+  { name: "東京テレポート", x: CENTER_X + 1400, y: CENTER_Y + 2200 },
+  { name: "国際展示場", x: CENTER_X + 1900, y: CENTER_Y + 1900 }, // 有明の近く
+  { name: "新木場", x: CENTER_X + 2600, y: CENTER_Y + 1600 },
 ]);
 
 // 19. 東海道本線 (東京〜品川〜川崎〜横浜〜大船〜小田原)
@@ -424,37 +431,37 @@ buildLine('tokaido', [
   { name: "品川" },
   { name: "川崎" },
   { name: "横浜" },
-  { name: "戸塚", x: CENTER_X - 19200, y: CENTER_Y + 25600 },
-  { name: "大船", x: CENTER_X - 20800, y: CENTER_Y + 28800 },
-  { name: "藤沢", x: CENTER_X - 24000, y: CENTER_Y + 30400 },
-  { name: "茅ヶ崎", x: CENTER_X - 27200, y: CENTER_Y + 32000 },
-  { name: "平塚", x: CENTER_X - 30400, y: CENTER_Y + 33600 },
-  { name: "小田原", x: CENTER_X - 36800, y: CENTER_Y + 36800 },
+  { name: "戸塚", x: CENTER_X - 2400, y: CENTER_Y + 3200 },
+  { name: "大船", x: CENTER_X - 2600, y: CENTER_Y + 3600 },
+  { name: "藤沢", x: CENTER_X - 3000, y: CENTER_Y + 3800 },
+  { name: "茅ヶ崎", x: CENTER_X - 3400, y: CENTER_Y + 4000 },
+  { name: "平塚", x: CENTER_X - 3800, y: CENTER_Y + 4200 },
+  { name: "小田原", x: CENTER_X - 4600, y: CENTER_Y + 4600 },
 ]);
 
 // 20. 有楽町線 (和光市〜池袋〜飯田橋〜有楽町〜豊洲〜新木場)
 buildLine('yurakucho', [
-  { name: "和光市", x: CENTER_X - 12800, y: CENTER_Y - 16000 },
-  { name: "小竹向原", x: CENTER_X - 6400, y: CENTER_Y - 11200 },
+  { name: "和光市", x: CENTER_X - 1600, y: CENTER_Y - 2000 },
+  { name: "小竹向原", x: CENTER_X - 800, y: CENTER_Y - 1400 },
   { name: "池袋" },
-  { name: "護国寺", x: CENTER_X + 3200, y: CENTER_Y - 4800 },
+  { name: "護国寺", x: CENTER_X + 400, y: CENTER_Y - 600 },
   { name: "飯田橋" },
   { name: "市ヶ谷" },
   { name: "有楽町" },
-  { name: "月島", x: CENTER_X + 14400, y: CENTER_Y + 8000 },
+  { name: "月島", x: CENTER_X + 1800, y: CENTER_Y + 1000 },
   { name: "豊洲" },
-  { name: "辰巳", x: CENTER_X + 21600, y: CENTER_Y + 11200 },
+  { name: "辰巳", x: CENTER_X + 2700, y: CENTER_Y + 1400 },
   { name: "新木場" },
 ]);
 
 // 21. 東急池上線 (五反田〜蒲田)
 buildLine('ikegami', [
   { name: "五反田" },
-  { name: "戸越銀座", x: CENTER_X - 4800, y: CENTER_Y + 13600 },
-  { name: "旗の台", x: CENTER_X - 8000, y: CENTER_Y + 15200 },
-  { name: "雪が谷大塚", x: CENTER_X - 7200, y: CENTER_Y + 16800 },
-  { name: "池上", x: CENTER_X - 5600, y: CENTER_Y + 18400 },
-  { name: "蒲田", x: CENTER_X - 3200, y: CENTER_Y + 19200 },
+  { name: "戸越銀座", x: CENTER_X - 600, y: CENTER_Y + 1700 },
+  { name: "旗の台", x: CENTER_X - 1000, y: CENTER_Y + 1900 },
+  { name: "雪が谷大塚", x: CENTER_X - 900, y: CENTER_Y + 2100 },
+  { name: "池上", x: CENTER_X - 700, y: CENTER_Y + 2300 },
+  { name: "蒲田", x: CENTER_X - 400, y: CENTER_Y + 2400 },
 ]);
 
 // 蒲田と川崎（南武線・東海道線）を京浜東北線などのイメージで接続
@@ -467,33 +474,33 @@ if (stations["蒲田"] && stations["川崎"]) {
 buildLine('seibuShinjuku', [
   { name: "新宿" },
   { name: "高田馬場" },
-  { name: "鷺ノ宮", x: CENTER_X - 16000, y: CENTER_Y - 7200 },
-  { name: "上石神井", x: CENTER_X - 20800, y: CENTER_Y - 9600 },
-  { name: "田無", x: CENTER_X - 25600, y: CENTER_Y - 11200 },
-  { name: "所沢", x: CENTER_X - 32000, y: CENTER_Y - 16000 },
+  { name: "鷺ノ宮", x: CENTER_X - 2000, y: CENTER_Y - 900 },
+  { name: "上石神井", x: CENTER_X - 2600, y: CENTER_Y - 1200 },
+  { name: "田無", x: CENTER_X - 3200, y: CENTER_Y - 1400 },
+  { name: "所沢", x: CENTER_X - 4000, y: CENTER_Y - 2000 },
 ]);
 
 // 23. 西武池袋線 (池袋〜練馬〜所沢〜飯能)
 buildLine('seibuIkebukuro', [
   { name: "池袋" },
-  { name: "練馬", x: CENTER_X - 9600, y: CENTER_Y - 11200 },
-  { name: "石神井公園", x: CENTER_X - 16000, y: CENTER_Y - 12800 },
-  { name: "大泉学園", x: CENTER_X - 20800, y: CENTER_Y - 13600 },
-  { name: "ひばりヶ丘", x: CENTER_X - 25600, y: CENTER_Y - 14400 },
+  { name: "練馬", x: CENTER_X - 1200, y: CENTER_Y - 1400 },
+  { name: "石神井公園", x: CENTER_X - 2000, y: CENTER_Y - 1600 },
+  { name: "大泉学園", x: CENTER_X - 2600, y: CENTER_Y - 1700 },
+  { name: "ひばりヶ丘", x: CENTER_X - 3200, y: CENTER_Y - 1800 },
   { name: "所沢" },
-  { name: "入間市", x: CENTER_X - 38400, y: CENTER_Y - 17600 },
-  { name: "飯能", x: CENTER_X - 44800, y: CENTER_Y - 19200 },
+  { name: "入間市", x: CENTER_X - 4800, y: CENTER_Y - 2200 },
+  { name: "飯能", x: CENTER_X - 5600, y: CENTER_Y - 2400 },
 ]);
 
 // 24. 多摩モノレール (上北台〜多摩センター)
 buildLine('tamaMonorail', [
-  { name: "上北台", x: CENTER_X - 36800, y: CENTER_Y - 12800 },
-  { name: "玉川上水", x: CENTER_X - 36800, y: CENTER_Y - 11200 },
-  { name: "立川北", x: CENTER_X - 35200, y: CENTER_Y - 10400 },
+  { name: "上北台", x: CENTER_X - 4600, y: CENTER_Y - 1600 },
+  { name: "玉川上水", x: CENTER_X - 4600, y: CENTER_Y - 1400 },
+  { name: "立川北", x: CENTER_X - 4400, y: CENTER_Y - 1300 },
   { name: "立川" },
-  { name: "立川南", x: CENTER_X - 35200, y: CENTER_Y - 7200 },
+  { name: "立川南", x: CENTER_X - 4400, y: CENTER_Y - 900 },
   { name: "高幡不動" },
-  { name: "多摩センター", x: CENTER_X - 32000, y: CENTER_Y + 8000 } // 京王多摩センターと共有でもOKだが名前を分ける場合は繋ぐ
+  { name: "多摩センター", x: CENTER_X - 4000, y: CENTER_Y + 1000 } // 京王多摩センターと共有でもOKだが名前を分ける場合は繋ぐ
 ]);
 if (stations["多摩センター"] && stations["京王多摩センター"]) {
   if (!stations["多摩センター"].next.includes("京王多摩センター")) stations["多摩センター"].next.push("京王多摩センター");
@@ -503,14 +510,14 @@ if (stations["多摩センター"] && stations["京王多摩センター"]) {
 // 25. 京浜東北線 (大宮〜横浜)
 buildLine('keihinTohoku', [
   { name: "大宮" },
-  { name: "さいたま新都心", x: CENTER_X + 1600, y: CENTER_Y - 25600 },
+  { name: "さいたま新都心", x: CENTER_X + 200, y: CENTER_Y - 3200 },
   { name: "浦和" },
-  { name: "南浦和", x: CENTER_X + 3200, y: CENTER_Y - 20800 },
-  { name: "蕨", x: CENTER_X + 1600, y: CENTER_Y - 19200 },
+  { name: "南浦和", x: CENTER_X + 400, y: CENTER_Y - 2600 },
+  { name: "蕨", x: CENTER_X + 200, y: CENTER_Y - 2400 },
   { name: "赤羽" },
-  { name: "東十条", x: CENTER_X + 3200, y: CENTER_Y - 16000 },
+  { name: "東十条", x: CENTER_X + 400, y: CENTER_Y - 2000 },
   { name: "王子" },
-  { name: "上中里", x: CENTER_X + 9600, y: CENTER_Y - 12800 },
+  { name: "上中里", x: CENTER_X + 1200, y: CENTER_Y - 1600 },
   { name: "田端" },
   { name: "西日暮里" },
   { name: "日暮里" },
@@ -527,55 +534,55 @@ buildLine('keihinTohoku', [
   { name: "高輪ゲートウェイ" },
   { name: "品川" },
   { name: "大井町" },
-  { name: "大森", x: CENTER_X - 3200, y: CENTER_Y + 17600 },
+  { name: "大森", x: CENTER_X - 400, y: CENTER_Y + 2200 },
   { name: "蒲田" },
   { name: "川崎" },
-  { name: "鶴見", x: CENTER_X - 8000, y: CENTER_Y + 22400 },
-  { name: "新子安", x: CENTER_X - 11200, y: CENTER_Y + 23200 },
-  { name: "東神奈川", x: CENTER_X - 14400, y: CENTER_Y + 24000 },
+  { name: "鶴見", x: CENTER_X - 1000, y: CENTER_Y + 2800 },
+  { name: "新子安", x: CENTER_X - 1400, y: CENTER_Y + 2900 },
+  { name: "東神奈川", x: CENTER_X - 1800, y: CENTER_Y + 3000 },
   { name: "横浜" }
 ]);
 
 // 26. 東北本線・宇都宮線 (大宮〜宇都宮)
 buildLine('tohoku', [
   { name: "大宮" },
-  { name: "蓮田", x: CENTER_X + 3200, y: CENTER_Y - 32000 },
-  { name: "久喜", x: CENTER_X + 6400, y: CENTER_Y - 35200 },
-  { name: "古河", x: CENTER_X + 9600, y: CENTER_Y - 38400 },
-  { name: "小山", x: CENTER_X + 12800, y: CENTER_Y - 41600 },
-  { name: "宇都宮", x: CENTER_X + 16000, y: CENTER_Y - 48000 }
+  { name: "蓮田", x: CENTER_X + 400, y: CENTER_Y - 4000 },
+  { name: "久喜", x: CENTER_X + 800, y: CENTER_Y - 4400 },
+  { name: "古河", x: CENTER_X + 1200, y: CENTER_Y - 4800 },
+  { name: "小山", x: CENTER_X + 1600, y: CENTER_Y - 5200 },
+  { name: "宇都宮", x: CENTER_X + 2000, y: CENTER_Y - 6000 }
 ]);
 
 // 27. 東武東上線 (池袋〜森林公園)
 buildLine('tobuTojo', [
   { name: "池袋" },
-  { name: "大山", x: CENTER_X - 3200, y: CENTER_Y - 8000 },
-  { name: "上板橋", x: CENTER_X - 6400, y: CENTER_Y - 11200 },
-  { name: "成増", x: CENTER_X - 9600, y: CENTER_Y - 14400 },
+  { name: "大山", x: CENTER_X - 400, y: CENTER_Y - 1000 },
+  { name: "上板橋", x: CENTER_X - 800, y: CENTER_Y - 1400 },
+  { name: "成増", x: CENTER_X - 1200, y: CENTER_Y - 1800 },
   { name: "和光市" },
-  { name: "朝霞台", x: CENTER_X - 16000, y: CENTER_Y - 17600 },
-  { name: "志木", x: CENTER_X - 19200, y: CENTER_Y - 19200 },
-  { name: "ふじみ野", x: CENTER_X - 22400, y: CENTER_Y - 22400 },
-  { name: "川越", x: CENTER_X - 25600, y: CENTER_Y - 25600 },
-  { name: "坂戸", x: CENTER_X - 28800, y: CENTER_Y - 28800 },
-  { name: "東松山", x: CENTER_X - 32000, y: CENTER_Y - 32000 },
-  { name: "森林公園", x: CENTER_X - 35200, y: CENTER_Y - 35200 }
+  { name: "朝霞台", x: CENTER_X - 2000, y: CENTER_Y - 2200 },
+  { name: "志木", x: CENTER_X - 2400, y: CENTER_Y - 2400 },
+  { name: "ふじみ野", x: CENTER_X - 2800, y: CENTER_Y - 2800 },
+  { name: "川越", x: CENTER_X - 3200, y: CENTER_Y - 3200 },
+  { name: "坂戸", x: CENTER_X - 3600, y: CENTER_Y - 3600 },
+  { name: "東松山", x: CENTER_X - 4000, y: CENTER_Y - 4000 },
+  { name: "森林公園", x: CENTER_X - 4400, y: CENTER_Y - 4400 }
 ]);
 
 // 28. 東武スカイツリーライン・伊勢崎線 (浅草〜東武動物公園)
 buildLine('tobuSkytree', [
   { name: "浅草" },
-  { name: "とうきょうスカイツリー", x: CENTER_X + 16000, y: CENTER_Y - 8000 },
+  { name: "とうきょうスカイツリー", x: CENTER_X + 2000, y: CENTER_Y - 1000 },
   { name: "押上" }, // 隣接させる
-  { name: "曳舟", x: CENTER_X + 17600, y: CENTER_Y - 9600 },
+  { name: "曳舟", x: CENTER_X + 2200, y: CENTER_Y - 1200 },
   { name: "北千住" },
-  { name: "西新井", x: CENTER_X + 14400, y: CENTER_Y - 14400 },
-  { name: "草加", x: CENTER_X + 16000, y: CENTER_Y - 17600 },
-  { name: "新越谷", x: CENTER_X + 17600, y: CENTER_Y - 20800 },
-  { name: "越谷", x: CENTER_X + 19200, y: CENTER_Y - 22400 },
-  { name: "せんげん台", x: CENTER_X + 22400, y: CENTER_Y - 25600 },
-  { name: "春日部", x: CENTER_X + 25600, y: CENTER_Y - 28800 },
-  { name: "東武動物公園", x: CENTER_X + 28800, y: CENTER_Y - 32000 }
+  { name: "西新井", x: CENTER_X + 1800, y: CENTER_Y - 1800 },
+  { name: "草加", x: CENTER_X + 2000, y: CENTER_Y - 2200 },
+  { name: "新越谷", x: CENTER_X + 2200, y: CENTER_Y - 2600 },
+  { name: "越谷", x: CENTER_X + 2400, y: CENTER_Y - 2800 },
+  { name: "せんげん台", x: CENTER_X + 2800, y: CENTER_Y - 3200 },
+  { name: "春日部", x: CENTER_X + 3200, y: CENTER_Y - 3600 },
+  { name: "東武動物公園", x: CENTER_X + 3600, y: CENTER_Y - 4000 }
 ]);
 if (stations["とうきょうスカイツリー"] && stations["押上"]) {
   if (!stations["とうきょうスカイツリー"].next.includes("押上")) stations["とうきょうスカイツリー"].next.push("押上");

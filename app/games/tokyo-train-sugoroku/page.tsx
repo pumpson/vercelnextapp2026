@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Navigation } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useSugoroku } from "./hooks/useSugoroku";
 import MapViewer from "./components/MapViewer";
 import { MAP_DATA } from "./data/mapData";
