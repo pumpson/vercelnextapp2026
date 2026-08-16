@@ -197,9 +197,12 @@ export default function MapViewer({
                 </>
               )}
 
-              {/* 選択可能ハイライト */}
+              {/* 選択可能ハイライト (大きく波打つ光) */}
               {isSelectable && (
-                <circle r="26" fill="none" stroke="#22d3ee" strokeWidth="6" className="animate-pulse" />
+                <>
+                  <circle r="45" fill="#fef08a" opacity="0.4" className="animate-ping" />
+                  <circle r="30" fill="none" stroke="#facc15" strokeWidth="6" className="animate-pulse" />
+                </>
               )}
 
               {/* 駅のサイズを少し大きく */}

@@ -5,7 +5,7 @@
 export type StationType = 'plus' | 'minus' | 'neutral';
 
 // 路線を表す型
-export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku' | 'denentoshi' | 'toyoko' | 'yokohama' | 'nambu' | 'yurikamome' | 'rinkai';
+export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku' | 'denentoshi' | 'toyoko' | 'yokohama' | 'nambu' | 'yurikamome' | 'rinkai' | 'tokaido' | 'yurakucho' | 'ikegami' | 'seibuShinjuku' | 'seibuIkebukuro';
 
 // 駅のデータ構造
 export interface Station {
@@ -38,6 +38,11 @@ export const LineColors: Record<LineType, string> = {
   nambu: '#FFD400',      // JR南武線（黄色）
   yurikamome: '#00B4E5', // ゆりかもめ（水色）
   rinkai: '#005D97',     // りんかい線（青）
+  tokaido: '#F68B1E',    // 東海道線（オレンジ）
+  yurakucho: '#D7C447',  // 有楽町線（ゴールド）
+  ikegami: '#EE8EA0',    // 東急池上線（ピンク）
+  seibuShinjuku: '#00A499', // 西武新宿線
+  seibuIkebukuro: '#FF6700', // 西武池袋線
 };
 
 // --- マップデータ作成の設計方針 ---
@@ -381,6 +386,74 @@ buildLine('rinkai', [
   { name: "東京テレポート", x: CENTER_X + 700, y: CENTER_Y + 1100 },
   { name: "国際展示場", x: CENTER_X + 950, y: CENTER_Y + 950 }, // 有明の近く
   { name: "新木場", x: CENTER_X + 1300, y: CENTER_Y + 800 },
+]);
+
+// 19. 東海道本線 (東京〜品川〜川崎〜横浜〜大船〜小田原)
+buildLine('tokaido', [
+  { name: "東京" },
+  { name: "新橋" },
+  { name: "品川" },
+  { name: "川崎" },
+  { name: "横浜" },
+  { name: "戸塚", x: CENTER_X - 1200, y: CENTER_Y + 1600 },
+  { name: "大船", x: CENTER_X - 1300, y: CENTER_Y + 1800 },
+  { name: "藤沢", x: CENTER_X - 1500, y: CENTER_Y + 1900 },
+  { name: "茅ヶ崎", x: CENTER_X - 1700, y: CENTER_Y + 2000 },
+  { name: "平塚", x: CENTER_X - 1900, y: CENTER_Y + 2100 },
+  { name: "小田原", x: CENTER_X - 2300, y: CENTER_Y + 2300 },
+]);
+
+// 20. 有楽町線 (和光市〜池袋〜飯田橋〜有楽町〜豊洲〜新木場)
+buildLine('yurakucho', [
+  { name: "和光市", x: CENTER_X - 800, y: CENTER_Y - 1000 },
+  { name: "小竹向原", x: CENTER_X - 400, y: CENTER_Y - 700 },
+  { name: "池袋" },
+  { name: "護国寺", x: CENTER_X + 200, y: CENTER_Y - 300 },
+  { name: "飯田橋" },
+  { name: "市ヶ谷" },
+  { name: "有楽町" },
+  { name: "月島", x: CENTER_X + 900, y: CENTER_Y + 500 },
+  { name: "豊洲" },
+  { name: "辰巳", x: CENTER_X + 1350, y: CENTER_Y + 700 },
+  { name: "新木場" },
+]);
+
+// 21. 東急池上線 (五反田〜蒲田)
+buildLine('ikegami', [
+  { name: "五反田" },
+  { name: "戸越銀座", x: CENTER_X - 300, y: CENTER_Y + 850 },
+  { name: "旗の台", x: CENTER_X - 500, y: CENTER_Y + 950 },
+  { name: "雪が谷大塚", x: CENTER_X - 450, y: CENTER_Y + 1050 },
+  { name: "池上", x: CENTER_X - 350, y: CENTER_Y + 1150 },
+  { name: "蒲田", x: CENTER_X - 200, y: CENTER_Y + 1200 },
+]);
+
+// 蒲田と川崎（南武線・東海道線）を京浜東北線などのイメージで接続
+if (stations["蒲田"] && stations["川崎"]) {
+  if (!stations["蒲田"].next.includes("川崎")) stations["蒲田"].next.push("川崎");
+  if (!stations["川崎"].next.includes("蒲田")) stations["川崎"].next.push("蒲田");
+}
+
+// 22. 西武新宿線 (新宿〜高田馬場〜所沢方面)
+buildLine('seibuShinjuku', [
+  { name: "新宿" },
+  { name: "高田馬場" },
+  { name: "鷺ノ宮", x: CENTER_X - 1000, y: CENTER_Y - 450 },
+  { name: "上石神井", x: CENTER_X - 1300, y: CENTER_Y - 600 },
+  { name: "田無", x: CENTER_X - 1600, y: CENTER_Y - 700 },
+  { name: "所沢", x: CENTER_X - 2000, y: CENTER_Y - 1000 },
+]);
+
+// 23. 西武池袋線 (池袋〜練馬〜所沢〜飯能)
+buildLine('seibuIkebukuro', [
+  { name: "池袋" },
+  { name: "練馬", x: CENTER_X - 600, y: CENTER_Y - 700 },
+  { name: "石神井公園", x: CENTER_X - 1000, y: CENTER_Y - 800 },
+  { name: "大泉学園", x: CENTER_X - 1300, y: CENTER_Y - 850 },
+  { name: "ひばりヶ丘", x: CENTER_X - 1600, y: CENTER_Y - 900 },
+  { name: "所沢" },
+  { name: "入間市", x: CENTER_X - 2400, y: CENTER_Y - 1100 },
+  { name: "飯能", x: CENTER_X - 2800, y: CENTER_Y - 1200 },
 ]);
 
 export const MAP_DATA: Station[] = Object.values(stations);

@@ -31,6 +31,10 @@ export function useSugoroku() {
   // フェーズ管理
   const [phase, setPhase] = useState<GamePhase>('player_dice');
 
+  // 陣地システム（停止回数管理）
+  // stationId -> { [playerId]: count }
+  const [stationVisits, setStationVisits] = useState<Record<string, Record<string, number>>>({});
+
   // プレイヤー状態
   const [player, setPlayer] = useState<PlayerState>({
     id: 'player',
@@ -196,26 +200,68 @@ export function useSugoroku() {
 
   // --- 移動・マスイベント処理用のヘルパー ---
   const applyStationEffect = useCallback((station: Station, isPlayer: boolean) => {
-    const amount = Math.floor(Math.random() * 50) + 10; // 10〜59万円
+    let amount = Math.floor(Math.random() * 50) + 10; // 10〜59万円
+    const playerId = isPlayer ? player.id : cpu.id;
+    const playerName = isPlayer ? player.name : cpu.name;
+
+    // 停止回数を記録
+    setStationVisits(prev => {
+      const stationData = prev[station.id] || {};
+      const newCount = (stationData[playerId] || 0) + 1;
+      return {
+        ...prev,
+        [station.id]: {
+          ...stationData,
+          [playerId]: newCount
+        }
+      };
+    });
+
+    // 陣地システムの計算（現在のステートを使用するが、いま追加した分は手動で足す）
+    let modifier = 1.0;
+    const currentStationVisits = stationVisits[station.id] || {};
+    const myVisits = (currentStationVisits[playerId] || 0) + 1;
+
+    // CPU数が増えることも想定し、他プレイヤーの停止回数を配列化して最大値を取得
+    const otherVisitsArray = Object.entries(currentStationVisits)
+      .filter(([id]) => id !== playerId)
+      .map(([, count]) => count);
+
+    const maxOtherVisits = otherVisitsArray.length > 0 ? Math.max(...otherVisitsArray) : 0;
+
+    if (myVisits > maxOtherVisits && station.type !== 'neutral') {
+      const diff = myVisits - maxOtherVisits;
+      if (diff >= 10) modifier = 1.5;
+      else if (diff >= 7) modifier = 1.3;
+      else if (diff >= 4) modifier = 1.2;
+      else if (diff >= 1) modifier = 1.1;
+
+      if (modifier > 1.0) {
+        addLog(`【陣地効果】${playerName}の陣地！(差:${diff}) 効果が${Math.round((modifier-1)*100)}%アップ！`);
+      }
+    }
 
     if (station.type === 'plus') {
-      addLog(`${isPlayer ? player.name : cpu.name}はプラス駅に止まった！ ${amount}万円もらった。`);
+      const finalAmount = Math.floor(amount * modifier);
+      addLog(`${playerName}はプラス駅に止まった！ ${finalAmount}万円もらった。`);
       if (isPlayer) {
-        setPlayer(p => ({ ...p, money: p.money + amount }));
+        setPlayer(p => ({ ...p, money: p.money + finalAmount }));
       } else {
-        setCpu(c => ({ ...c, money: c.money + amount }));
+        setCpu(c => ({ ...c, money: c.money + finalAmount }));
       }
     } else if (station.type === 'minus') {
-      addLog(`${isPlayer ? player.name : cpu.name}はマイナス駅に止まった... ${amount}万円失った。`);
+      // 陣地の場合はマイナス効果を軽減（例：1.5 => 0.5倍にする）
+      const finalAmount = Math.floor(amount * (modifier > 1.0 ? (1 - (modifier - 1)) : 1.0));
+      addLog(`${playerName}はマイナス駅に止まった... ${finalAmount}万円失った。`);
       if (isPlayer) {
-        setPlayer(p => ({ ...p, money: p.money - amount }));
+        setPlayer(p => ({ ...p, money: p.money - finalAmount }));
       } else {
-        setCpu(c => ({ ...c, money: c.money - amount }));
+        setCpu(c => ({ ...c, money: c.money - finalAmount }));
       }
     } else {
-      addLog(`${isPlayer ? player.name : cpu.name}は駅に止まった。何も起きなかった。`);
+      addLog(`${playerName}は駅に止まった。何も起きなかった。`);
     }
-  }, [player.name, cpu.name, addLog]);
+  }, [player.name, player.id, cpu.name, cpu.id, addLog, stationVisits]);
 
   const checkDestination = useCallback((stationId: string, isPlayer: boolean) => {
     if (stationId === destinationId) {

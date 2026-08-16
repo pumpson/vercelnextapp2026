@@ -26,7 +26,7 @@ export default function TokyoTrainSugorokuPage() {
   };
 
   return (
-    <div className="relative h-[calc(100vh-64px)] w-full overflow-hidden bg-gray-900 text-white flex flex-col">
+    <div className="relative h-[calc(100vh-72px)] w-full overflow-hidden bg-gray-900 text-white flex flex-col">
       {/* Header */}
       <header className="p-4 bg-gray-800 border-b border-gray-700 flex items-center justify-between shrink-0">
         <Link href="/games" className="flex items-center text-gray-400 hover:text-white transition-colors">
@@ -190,7 +190,7 @@ export default function TokyoTrainSugorokuPage() {
             </div>
 
             {/* Message Log */}
-            <div className="flex-1 overflow-y-auto text-sm text-gray-300 space-y-2 bg-gray-950 p-3 rounded border border-gray-800 min-h-[150px]">
+            <div className="overflow-y-auto text-sm text-gray-300 space-y-2 bg-gray-950 p-3 rounded border border-gray-800 h-32 shrink-0">
               {gameState.logs.map((log, i) => (
                 <div key={i} className="border-b border-gray-800/50 pb-1 last:border-0">{log}</div>
               ))}
