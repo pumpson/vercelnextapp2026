@@ -1,0 +1,8 @@
+<<<<<<< SEARCH
+  - **Auto Tactics**: 部隊のクラスと陣形を選択し、フルオートで進行するSRPG風シミュレーションゲーム（React/TSX実装）。
+* **技術的特徴**: Phaser3 や Leaflet を使用するゲームは `next/dynamic` を活用してSSRを無効化し、Next.js (React) コンポーネントとしてシームレスに統合されている。
+=======
+  - **Auto Tactics**: 部隊のクラスと陣形を選択し、フルオートで進行するSRPG風シミュレーションゲーム（React/TSX実装）。
+  - **Tokyo Train Sugoroku**: 実在の東京の鉄道路線を舞台にした桃太郎電鉄風のすごろくゲーム。プレイヤーとCPUが1対1で競い合い、サイコロを振って目的地を目指す（React/TSX/SVG実装）。
+* **技術的特徴**: Phaser3 や Leaflet を使用するゲームは `next/dynamic` を活用してSSRを無効化し、Next.js (React) コンポーネントとしてシームレスに統合されている。
+>>>>>>> REPLACE

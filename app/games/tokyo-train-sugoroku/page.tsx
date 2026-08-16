@@ -78,14 +78,9 @@ export default function TokyoTrainSugorokuPage() {
           )}
 
           {gameState.phase === 'player_action' && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-900/90 p-6 rounded-2xl border border-green-500 shadow-2xl text-center backdrop-blur-sm z-10 min-w-[300px]">
-              <h3 className="text-2xl font-bold mb-4 text-green-400">行動終了</h3>
-              <button
-                onClick={gameState.finishPlayerAction}
-                className="w-full py-3 bg-green-600 hover:bg-green-500 rounded-lg font-bold transition-colors"
-              >
-                ターン終了
-              </button>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-900/90 p-6 rounded-2xl border border-green-500 shadow-2xl text-center backdrop-blur-sm z-10 min-w-[300px] pointer-events-none">
+              <h3 className="text-2xl font-bold text-green-400 animate-pulse">行動終了</h3>
+              <p className="text-sm text-gray-400 mt-2">CPUのターンへ移行します...</p>
             </div>
           )}
 

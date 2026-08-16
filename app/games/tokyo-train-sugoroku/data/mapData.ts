@@ -5,7 +5,7 @@
 export type StationType = 'plus' | 'minus' | 'neutral';
 
 // 路線を表す型
-export type LineType = 'yamanote' | 'ginza' | 'marunouchi';
+export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio';
 
 // 駅のデータ構造
 export interface Station {
@@ -23,18 +23,16 @@ export const LineColors: Record<LineType, string> = {
   yamanote: '#8CC63F',   // JR山手線（ウグイス色）
   ginza: '#F39700',      // 東京メトロ銀座線（オレンジ）
   marunouchi: '#E60012', // 東京メトロ丸ノ内線（赤）
+  chuo: '#F15A22',       // JR中央線（オレンジ）
+  odakyu: '#007EC7',     // 小田急線（青）
+  keio: '#DD0055',       // 京王線（ピンク系赤）
 };
 
 // --- マップデータ作成の設計方針 ---
-// 山手線を円形に配置します。中心座標を (500, 500)、半径を 400 とします。
-// 山手線の駅は全30駅です。
-// 銀座線は渋谷から浅草まで斜めに横断します。
-// 丸ノ内線は池袋から新宿、東京を経由するU字型の路線です。
-// 駅の隣接関係を手動で設定します。
-
-const CENTER_X = 500;
-const CENTER_Y = 500;
-const RADIUS = 400;
+// 全体が見やすいよう座標系を広く（キャンバスサイズ 2000x2000 を想定）
+const CENTER_X = 1000;
+const CENTER_Y = 1000;
+const RADIUS = 700; // 山手線の半径を大きく
 
 // 山手線の駅リスト（時計回り）
 const yamanoteStationNames = [
@@ -92,17 +90,18 @@ const getYamanoteId = (name: string) => {
 };
 
 // 2. 銀座線の駅を生成 (渋谷〜浅草)
-// 渋谷、表参道、外苑前、青山一丁目、赤坂見附、溜池山王、虎ノ門、新橋、銀座、京橋、日本橋、三越前、神田、末広町、上野広小路、上野、稲荷町、田原町、浅草
 const ginzaStationsInfo = [
   { name: "渋谷", ref: getYamanoteId("渋谷") },
-  { name: "表参道", x: 320, y: 550 },
-  { name: "赤坂見附", x: 450, y: 600 },
+  { name: "表参道", x: CENTER_X - 450, y: CENTER_Y + 100 },
+  { name: "外苑前", x: CENTER_X - 300, y: CENTER_Y + 150 },
+  { name: "赤坂見附", x: CENTER_X - 100, y: CENTER_Y + 200 },
+  { name: "溜池山王", x: CENTER_X + 50, y: CENTER_Y + 250 },
   { name: "新橋", ref: getYamanoteId("新橋") },
-  { name: "銀座", x: 750, y: 700 },
-  { name: "日本橋", x: 800, y: 600 },
+  { name: "銀座", x: CENTER_X + 450, y: CENTER_Y + 400 },
+  { name: "日本橋", x: CENTER_X + 550, y: CENTER_Y + 200 },
   { name: "神田", ref: getYamanoteId("神田") },
   { name: "上野", ref: getYamanoteId("上野") },
-  { name: "浅草", x: 950, y: 200 },
+  { name: "浅草", x: CENTER_X + 800, y: CENTER_Y - 500 },
 ];
 
 for (let i = 0; i < ginzaStationsInfo.length; i++) {
@@ -139,18 +138,20 @@ for (let i = 0; i < ginzaStationsInfo.length; i++) {
 }
 
 // 3. 丸ノ内線の駅を生成 (池袋〜新宿)
-// 池袋、新大塚、茗荷谷、後楽園、本郷三丁目、御茶ノ水、淡路町、大手町、東京、銀座、霞ケ関、国会議事堂前、赤坂見附、四ツ谷、四谷三丁目、新宿御苑前、新宿三丁目、新宿
-// 簡略化して主要駅のみ
 const marunouchiStationsInfo = [
   { name: "池袋", ref: getYamanoteId("池袋") },
-  { name: "後楽園", x: 600, y: 300 },
-  { name: "御茶ノ水", x: 700, y: 400 },
-  { name: "大手町", x: 800, y: 500 },
+  { name: "茗荷谷", x: CENTER_X + 150, y: CENTER_Y - 400 },
+  { name: "後楽園", x: CENTER_X + 300, y: CENTER_Y - 250 },
+  { name: "御茶ノ水", x: CENTER_X + 450, y: CENTER_Y - 100 },
+  { name: "大手町", x: CENTER_X + 600, y: CENTER_Y + 50 },
   { name: "東京", ref: getYamanoteId("東京") },
-  { name: "銀座", ref: "ginza_4" }, // 銀座線の銀座駅
-  { name: "霞ケ関", x: 600, y: 700 },
-  { name: "赤坂見附", ref: "ginza_2" }, // 銀座線の赤坂見附駅
-  { name: "四ツ谷", x: 350, y: 450 },
+  { name: "銀座", ref: "ginza_6" }, // 銀座線の銀座駅
+  { name: "霞ケ関", x: CENTER_X + 200, y: CENTER_Y + 450 },
+  { name: "国会議事堂前", x: CENTER_X, y: CENTER_Y + 350 },
+  { name: "赤坂見附", ref: "ginza_3" }, // 銀座線の赤坂見附駅
+  { name: "四ツ谷", x: CENTER_X - 300, y: CENTER_Y + 50 },
+  { name: "新宿御苑前", x: CENTER_X - 500, y: CENTER_Y - 50 },
+  { name: "新宿三丁目", x: CENTER_X - 600, y: CENTER_Y - 100 },
   { name: "新宿", ref: getYamanoteId("新宿") },
 ];
 
@@ -182,6 +183,124 @@ for (let i = 0; i < marunouchiStationsInfo.length; i++) {
       const prevInfo = marunouchiStationsInfo[i - 1];
       const prevId = prevInfo.ref || `marunouchi_${i - 1}`;
 
+      if (!stations[currentId].next.includes(prevId)) stations[currentId].next.push(prevId);
+      if (!stations[prevId].next.includes(currentId)) stations[prevId].next.push(currentId);
+  }
+}
+
+// 4. 中央線の駅を生成 (東京〜新宿〜高尾方面)
+const chuoStationsInfo = [
+  { name: "東京", ref: getYamanoteId("東京") },
+  { name: "神田", ref: getYamanoteId("神田") },
+  { name: "御茶ノ水", ref: "marunouchi_3" },
+  { name: "四ツ谷", ref: "marunouchi_10" },
+  { name: "新宿", ref: getYamanoteId("新宿") },
+  { name: "中野", x: CENTER_X - 850, y: CENTER_Y - 200 },
+  { name: "高円寺", x: CENTER_X - 1000, y: CENTER_Y - 250 },
+  { name: "阿佐ヶ谷", x: CENTER_X - 1150, y: CENTER_Y - 300 },
+  { name: "荻窪", x: CENTER_X - 1300, y: CENTER_Y - 350 },
+  { name: "吉祥寺", x: CENTER_X - 1500, y: CENTER_Y - 400 },
+  { name: "三鷹", x: CENTER_X - 1700, y: CENTER_Y - 450 },
+];
+
+for (let i = 0; i < chuoStationsInfo.length; i++) {
+  const info = chuoStationsInfo[i];
+  let currentId = info.ref;
+
+  if (currentId) {
+      if (!stations[currentId].lines.includes('chuo')) stations[currentId].lines.push('chuo');
+  } else {
+      currentId = `chuo_${i}`;
+      stations[currentId] = {
+          id: currentId,
+          name: info.name,
+          x: info.x!,
+          y: info.y!,
+          type: Math.random() > 0.5 ? 'plus' : 'minus',
+          lines: ['chuo'],
+          next: []
+      };
+  }
+
+  if (i > 0) {
+      const prevInfo = chuoStationsInfo[i - 1];
+      const prevId = prevInfo.ref || `chuo_${i - 1}`;
+      if (!stations[currentId].next.includes(prevId)) stations[currentId].next.push(prevId);
+      if (!stations[prevId].next.includes(currentId)) stations[prevId].next.push(currentId);
+  }
+}
+
+// 5. 小田急線の駅を生成 (新宿〜町田方面)
+const odakyuStationsInfo = [
+  { name: "新宿", ref: getYamanoteId("新宿") },
+  { name: "代々木上原", x: CENTER_X - 800, y: CENTER_Y + 100 },
+  { name: "下北沢", x: CENTER_X - 950, y: CENTER_Y + 200 },
+  { name: "経堂", x: CENTER_X - 1150, y: CENTER_Y + 300 },
+  { name: "成城学園前", x: CENTER_X - 1400, y: CENTER_Y + 450 },
+  { name: "登戸", x: CENTER_X - 1600, y: CENTER_Y + 600 },
+  { name: "新百合ヶ丘", x: CENTER_X - 1800, y: CENTER_Y + 750 },
+  { name: "町田", x: CENTER_X - 2000, y: CENTER_Y + 950 },
+];
+
+for (let i = 0; i < odakyuStationsInfo.length; i++) {
+  const info = odakyuStationsInfo[i];
+  let currentId = info.ref;
+
+  if (currentId) {
+      if (!stations[currentId].lines.includes('odakyu')) stations[currentId].lines.push('odakyu');
+  } else {
+      currentId = `odakyu_${i}`;
+      stations[currentId] = {
+          id: currentId,
+          name: info.name,
+          x: info.x!,
+          y: info.y!,
+          type: Math.random() > 0.5 ? 'plus' : 'minus',
+          lines: ['odakyu'],
+          next: []
+      };
+  }
+
+  if (i > 0) {
+      const prevInfo = odakyuStationsInfo[i - 1];
+      const prevId = prevInfo.ref || `odakyu_${i - 1}`;
+      if (!stations[currentId].next.includes(prevId)) stations[currentId].next.push(prevId);
+      if (!stations[prevId].next.includes(currentId)) stations[prevId].next.push(currentId);
+  }
+}
+
+// 6. 京王線の駅を生成 (新宿〜調布方面)
+const keioStationsInfo = [
+  { name: "新宿", ref: getYamanoteId("新宿") },
+  { name: "笹塚", x: CENTER_X - 850, y: CENTER_Y },
+  { name: "明大前", x: CENTER_X - 1000, y: CENTER_Y },
+  { name: "千歳烏山", x: CENTER_X - 1250, y: CENTER_Y + 50 },
+  { name: "調布", x: CENTER_X - 1600, y: CENTER_Y + 100 },
+  { name: "府中", x: CENTER_X - 1900, y: CENTER_Y + 150 },
+];
+
+for (let i = 0; i < keioStationsInfo.length; i++) {
+  const info = keioStationsInfo[i];
+  let currentId = info.ref;
+
+  if (currentId) {
+      if (!stations[currentId].lines.includes('keio')) stations[currentId].lines.push('keio');
+  } else {
+      currentId = `keio_${i}`;
+      stations[currentId] = {
+          id: currentId,
+          name: info.name,
+          x: info.x!,
+          y: info.y!,
+          type: Math.random() > 0.5 ? 'plus' : 'minus',
+          lines: ['keio'],
+          next: []
+      };
+  }
+
+  if (i > 0) {
+      const prevInfo = keioStationsInfo[i - 1];
+      const prevId = prevInfo.ref || `keio_${i - 1}`;
       if (!stations[currentId].next.includes(prevId)) stations[currentId].next.push(prevId);
       if (!stations[prevId].next.includes(currentId)) stations[prevId].next.push(currentId);
   }

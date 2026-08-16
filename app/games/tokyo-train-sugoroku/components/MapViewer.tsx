@@ -27,14 +27,15 @@ export default function MapViewer({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   // プレイヤーが現在いる駅を中心に表示する（初回のみ）
+  // 全体が見えるようにさらに広い視野で初期化する
   useEffect(() => {
     const pStation = MAP_DATA.find(s => s.id === playerStationId);
     if (pStation) {
       setViewBox({
-        x: pStation.x - 500, // 画面幅の半分
-        y: pStation.y - 500,
-        w: 1000,
-        h: 1000
+        x: pStation.x - 1500, // 画面幅の半分をさらに広く
+        y: pStation.y - 1500,
+        w: 3000,
+        h: 3000
       });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -79,8 +80,8 @@ export default function MapViewer({
       const newW = isZoomIn ? prev.w / zoomFactor : prev.w * zoomFactor;
       const newH = isZoomIn ? prev.h / zoomFactor : prev.h * zoomFactor;
 
-      // ズームしすぎ、引きすぎの制限
-      if (newW < 200 || newW > 3000) return prev;
+      // ズームしすぎ、引きすぎの制限 (最大ズームアウトを広げる)
+      if (newW < 200 || newW > 6000) return prev;
 
       // マウス位置を中心にズーム
       const svgRect = svgRef.current?.getBoundingClientRect();
@@ -125,6 +126,7 @@ export default function MapViewer({
           }
         }
 
+        // 駅間が広くなったため、線を少し太めに
         edges.push(
           <line
             key={edgeId1}
@@ -133,9 +135,9 @@ export default function MapViewer({
             x2={nextStation.x}
             y2={nextStation.y}
             stroke={strokeColor}
-            strokeWidth="6"
+            strokeWidth="8"
             strokeLinecap="round"
-            opacity="0.8"
+            opacity="0.7"
           />
         );
       }
@@ -159,11 +161,11 @@ export default function MapViewer({
       >
         {/* 背景のグリッド（オプショナル） */}
         <defs>
-          <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
-            <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#ffffff0a" strokeWidth="1"/>
+          <pattern id="grid" width="200" height="200" patternUnits="userSpaceOnUse">
+            <path d="M 200 0 L 0 0 0 200" fill="none" stroke="#ffffff0a" strokeWidth="1"/>
           </pattern>
         </defs>
-        <rect x={viewBox.x - 2000} y={viewBox.y - 2000} width={viewBox.w + 4000} height={viewBox.h + 4000} fill="url(#grid)" />
+        <rect x={viewBox.x - 4000} y={viewBox.y - 4000} width={viewBox.w + 8000} height={viewBox.h + 8000} fill="url(#grid)" />
 
         {/* 路線（エッジ）の描画 */}
         {edges}
@@ -187,9 +189,9 @@ export default function MapViewer({
               {/* 目的地ハイライト */}
               {isDestination && (
                 <>
-                  <circle r="25" fill="#facc15" className="animate-ping opacity-75" />
-                  <circle r="20" fill="#facc15" stroke="#fff" strokeWidth="3" />
-                  <text y="-25" textAnchor="middle" fill="#facc15" fontSize="16" fontWeight="bold" className="drop-shadow-md">
+                  <circle r="35" fill="#facc15" className="animate-ping opacity-75" />
+                  <circle r="28" fill="#facc15" stroke="#fff" strokeWidth="4" />
+                  <text y="-35" textAnchor="middle" fill="#facc15" fontSize="20" fontWeight="bold" className="drop-shadow-md">
                     目的地
                   </text>
                 </>
@@ -197,25 +199,27 @@ export default function MapViewer({
 
               {/* 選択可能ハイライト */}
               {isSelectable && (
-                <circle r="18" fill="none" stroke="#22d3ee" strokeWidth="4" className="animate-pulse" />
+                <circle r="26" fill="none" stroke="#22d3ee" strokeWidth="6" className="animate-pulse" />
               )}
 
+              {/* 駅のサイズを少し大きく */}
               <circle
-                r="12"
+                r="18"
                 fill={fillColor}
                 stroke="#fff"
-                strokeWidth="2"
-                className={`transition-all duration-300 ${isSelectable ? 'hover:scale-125' : ''}`}
+                strokeWidth="3"
+                className={`transition-all duration-300 ${isSelectable ? 'hover:scale-110' : ''}`}
               />
 
+              {/* 駅名のフォントサイズを大きくし、背景と区別しやすくする */}
               <text
-                y="24"
+                y="32"
                 textAnchor="middle"
                 fill="#f8fafc"
-                fontSize="14"
+                fontSize="18"
                 fontWeight="bold"
-                className="select-none pointer-events-none drop-shadow-md"
-                style={{ textShadow: '1px 1px 2px black, -1px -1px 2px black, 1px -1px 2px black, -1px 1px 2px black' }}
+                className="select-none pointer-events-none"
+                style={{ textShadow: '2px 2px 4px #000, -2px -2px 4px #000, 2px -2px 4px #000, -2px 2px 4px #000, 0 0 8px #000' }}
               >
                 {station.name}
               </text>
@@ -227,9 +231,9 @@ export default function MapViewer({
         {MAP_DATA.map(station => {
           if (station.id !== cpuStationId) return null;
           return (
-            <g key="cpu-marker" transform={`translate(${station.x + 10}, ${station.y - 10})`} className="pointer-events-none transition-transform duration-500">
-              <circle r="14" fill="#ef4444" stroke="#fff" strokeWidth="2" />
-              <text y="5" textAnchor="middle" fill="#fff" fontSize="14" fontWeight="bold">C</text>
+            <g key="cpu-marker" transform={`translate(${station.x + 15}, ${station.y - 15})`} className="pointer-events-none transition-transform duration-500">
+              <circle r="20" fill="#ef4444" stroke="#fff" strokeWidth="3" />
+              <text y="6" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="bold">C</text>
             </g>
           );
         })}
@@ -238,9 +242,9 @@ export default function MapViewer({
         {MAP_DATA.map(station => {
           if (station.id !== playerStationId) return null;
           return (
-            <g key="player-marker" transform={`translate(${station.x - 10}, ${station.y - 10})`} className="pointer-events-none transition-transform duration-500">
-              <circle r="16" fill="#22c55e" stroke="#fff" strokeWidth="3" />
-              <text y="5" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="bold">P</text>
+            <g key="player-marker" transform={`translate(${station.x - 15}, ${station.y - 15})`} className="pointer-events-none transition-transform duration-500">
+              <circle r="22" fill="#22c55e" stroke="#fff" strokeWidth="4" />
+              <text y="7" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="bold">P</text>
             </g>
           );
         })}

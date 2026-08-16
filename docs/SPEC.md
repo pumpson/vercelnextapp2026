@@ -66,6 +66,7 @@
   - **Fishing Master**: 昼・夕方・夜で釣れる魚が変わるシンプルな釣りゲーム（React/TSX実装）。
   - **Geo Collector**: Leafletと位置情報APIを活用し、マップ上に配置されるオブジェを収集・育成する位置情報ゲーム（React/TSX実装）。
   - **Auto Tactics**: 部隊のクラスと陣形を選択し、フルオートで進行するSRPG風シミュレーションゲーム（React/TSX実装）。
+  - **Tokyo Train Sugoroku**: 実在の東京の鉄道路線を舞台にした桃太郎電鉄風のすごろくゲーム。プレイヤーとCPUが1対1で競い合い、サイコロを振って目的地を目指す（React/TSX/SVG実装）。
 * **技術的特徴**: Phaser3 や Leaflet を使用するゲームは `next/dynamic` を活用してSSRを無効化し、Next.js (React) コンポーネントとしてシームレスに統合されている。
 
 ## 3. 開発要件

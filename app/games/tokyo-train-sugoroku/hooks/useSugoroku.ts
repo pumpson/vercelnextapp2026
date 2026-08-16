@@ -207,10 +207,13 @@ export function useSugoroku() {
     }
   }, [phase, remainingMoves, checkDestination, applyStationEffect]);
 
-  // マスイベント終了後の確認（OKボタンなどでターンを終了する）
-  const finishPlayerAction = useCallback(() => {
+  // プレイヤーのマスイベント後、自動でターンを終了する
+  useEffect(() => {
     if (phase === 'player_action') {
-      endTurn();
+      const timer = setTimeout(() => {
+        endTurn();
+      }, 1500);
+      return () => clearTimeout(timer);
     }
   }, [phase, endTurn]);
 
@@ -312,7 +315,6 @@ export function useSugoroku() {
     logs,
     rollDice,
     movePlayerTo,
-    finishPlayerAction,
     setPhase, // CPUロジック等で外部から変更できるように
     setRemainingMoves,
     setCpu,
