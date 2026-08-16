@@ -5,7 +5,7 @@
 export type StationType = 'plus' | 'minus' | 'neutral';
 
 // 路線を表す型
-export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku';
+export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku' | 'denentoshi' | 'toyoko' | 'yokohama' | 'nambu' | 'yurikamome' | 'rinkai';
 
 // 駅のデータ構造
 export interface Station {
@@ -32,6 +32,12 @@ export const LineColors: Record<LineType, string> = {
   saikyo: '#00977B',     // 埼京線（グリーン）
   shonan: '#E21F26',     // 湘南新宿ライン（赤系）
   namboku: '#00AC9B',    // 南北線（エメラルド）
+  denentoshi: '#20A288', // 東急田園都市線（グリーン）
+  toyoko: '#DA0442',     // 東急東横線（赤）
+  yokohama: '#8CC63F',   // JR横浜線（黄緑色）
+  nambu: '#FFD400',      // JR南武線（黄色）
+  yurikamome: '#00B4E5', // ゆりかもめ（水色）
+  rinkai: '#005D97',     // りんかい線（青）
 };
 
 // --- マップデータ作成の設計方針 ---
@@ -198,6 +204,7 @@ buildLine('odakyu', [
   { name: "登戸", x: CENTER_X - 1600, y: CENTER_Y + 600 },
   { name: "新百合ヶ丘", x: CENTER_X - 1800, y: CENTER_Y + 750 },
   { name: "町田", x: CENTER_X - 2000, y: CENTER_Y + 950 },
+  { name: "中央林間", x: CENTER_X - 2200, y: CENTER_Y + 1150 },
 ]);
 
 // 6. 京王線の駅を生成 (新宿〜八王子方面)
@@ -208,6 +215,7 @@ buildLine('keio', [
   { name: "千歳烏山", x: CENTER_X - 1250, y: CENTER_Y + 50 },
   { name: "調布", x: CENTER_X - 1600, y: CENTER_Y + 100 },
   { name: "府中", x: CENTER_X - 1900, y: CENTER_Y + 150 },
+  { name: "分倍河原", x: CENTER_X - 2000, y: CENTER_Y + 120 },
   { name: "聖蹟桜ヶ丘", x: CENTER_X - 2100, y: CENTER_Y + 100 },
   { name: "高幡不動", x: CENTER_X - 2300, y: CENTER_Y + 50 },
   { name: "八王子" }, // 中央線と共有
@@ -305,6 +313,74 @@ buildLine('namboku', [
   { name: "駒込" },
   { name: "王子", x: CENTER_X + 500, y: CENTER_Y - 900 },
   { name: "赤羽岩淵", x: CENTER_X + 400, y: CENTER_Y - 1100 },
+]);
+
+// 13. 東急田園都市線 (渋谷〜中央林間)
+buildLine('denentoshi', [
+  { name: "渋谷" },
+  { name: "三軒茶屋", x: CENTER_X - 900, y: CENTER_Y + 350 },
+  { name: "二子玉川", x: CENTER_X - 1300, y: CENTER_Y + 600 },
+  { name: "溝の口", x: CENTER_X - 1500, y: CENTER_Y + 700 },
+  { name: "たまプラーザ", x: CENTER_X - 1700, y: CENTER_Y + 850 },
+  { name: "青葉台", x: CENTER_X - 1900, y: CENTER_Y + 1000 },
+  { name: "長津田", x: CENTER_X - 2050, y: CENTER_Y + 1100 },
+  { name: "中央林間" },
+]);
+
+// 14. 東急東横線 (渋谷〜横浜)
+buildLine('toyoko', [
+  { name: "渋谷" },
+  { name: "中目黒", x: CENTER_X - 700, y: CENTER_Y + 600 },
+  { name: "自由が丘", x: CENTER_X - 750, y: CENTER_Y + 850 },
+  { name: "武蔵小杉" },
+  { name: "日吉", x: CENTER_X - 600, y: CENTER_Y + 1300 },
+  { name: "菊名", x: CENTER_X - 800, y: CENTER_Y + 1400 },
+  { name: "横浜" },
+]);
+
+// 15. JR横浜線 (八王子〜横浜)
+buildLine('yokohama', [
+  { name: "八王子" },
+  { name: "橋本", x: CENTER_X - 2300, y: CENTER_Y + 700 },
+  { name: "町田" },
+  { name: "長津田" },
+  { name: "新横浜", x: CENTER_X - 1100, y: CENTER_Y + 1300 },
+  { name: "菊名" },
+  { name: "横浜" },
+]);
+
+// 16. JR南武線 (立川〜川崎)
+buildLine('nambu', [
+  { name: "立川" },
+  { name: "分倍河原" },
+  { name: "稲田堤", x: CENTER_X - 1800, y: CENTER_Y + 450 },
+  { name: "登戸" },
+  { name: "溝の口" },
+  { name: "武蔵小杉" },
+  { name: "川崎", x: CENTER_X - 200, y: CENTER_Y + 1300 },
+]);
+
+// 17. ゆりかもめ (新橋〜豊洲)
+buildLine('yurikamome', [
+  { name: "新橋" },
+  { name: "汐留", x: CENTER_X + 600, y: CENTER_Y + 600 },
+  { name: "お台場海浜公園", x: CENTER_X + 700, y: CENTER_Y + 900 },
+  { name: "台場", x: CENTER_X + 600, y: CENTER_Y + 1000 },
+  { name: "東京国際クルーズターミナル", x: CENTER_X + 750, y: CENTER_Y + 1150 },
+  { name: "東京ビッグサイト", x: CENTER_X + 900, y: CENTER_Y + 1000 },
+  { name: "有明", x: CENTER_X + 1000, y: CENTER_Y + 900 },
+  { name: "豊洲", x: CENTER_X + 1200, y: CENTER_Y + 600 },
+]);
+
+// 18. りんかい線 (大崎〜新木場)
+buildLine('rinkai', [
+  { name: "大崎" },
+  { name: "大井町", x: CENTER_X - 200, y: CENTER_Y + 1000 },
+  { name: "品川シーサイド", x: CENTER_X, y: CENTER_Y + 1100 },
+  { name: "天王洲アイル", x: CENTER_X + 200, y: CENTER_Y + 1000 },
+  { name: "東京テレポート", x: CENTER_X + 700, y: CENTER_Y + 1100 },
+  { name: "国際展示場", x: CENTER_X + 950, y: CENTER_Y + 950 }, // 有明の近く
+  { name: "新木場", x: CENTER_X + 1300, y: CENTER_Y + 800 },
 ]);
 
 export const MAP_DATA: Station[] = Object.values(stations);

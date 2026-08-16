@@ -26,7 +26,7 @@ export default function TokyoTrainSugorokuPage() {
   };
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-gray-900 text-white flex flex-col">
+    <div className="relative h-[calc(100vh-64px)] w-full overflow-hidden bg-gray-900 text-white flex flex-col">
       {/* Header */}
       <header className="p-4 bg-gray-800 border-b border-gray-700 flex items-center justify-between shrink-0">
         <Link href="/games" className="flex items-center text-gray-400 hover:text-white transition-colors">
