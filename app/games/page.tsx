@@ -69,6 +69,12 @@ export default function GamesIndexPage() {
           <h2 className="text-2xl font-bold mb-2 group-hover:text-red-500 transition-colors">Auto Tactics</h2>
           <p className="text-gray-400 flex-grow">部隊と陣形を編成し、フルオートで敵部隊と戦うシミュレーションRPG。</p>
         </Link>
+
+        <Link href="/games/tokyo-train-sugoroku" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-emerald-600 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">🚆</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-emerald-500 transition-colors">東京トレインすごろく</h2>
+          <p className="text-gray-400 flex-grow">東京の地下鉄やJRを舞台にした鉄道すごろくゲーム。目的地を目指して資産を増やそう。</p>
+        </Link>
       </div>
     </div>
   );
