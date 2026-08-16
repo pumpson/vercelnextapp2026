@@ -100,41 +100,7 @@ export default function TokyoTrainSugorokuPage() {
         {/* Sidebar (Status & Controls) */}
         <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 p-4 flex flex-col gap-4 z-20 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.3)] overflow-y-auto">
 
-          <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden shrink-0">
-            <div className="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
-            <h2 className="text-lg font-bold mb-2 text-green-400">プレイヤー</h2>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-400">現在地:</span>
-              <span className="font-bold">{getStationName(gameState.player.currentStationId)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm mt-1">
-              <span className="text-gray-400">所持金:</span>
-              <span className="font-mono text-lg font-bold">¥{gameState.player.money.toLocaleString()}万</span>
-            </div>
-            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-800">
-              <span className="text-gray-500">目的地まで:</span>
-              <span className="text-gray-400">あと <span className="font-bold text-white">{gameState.getDistanceBfs(gameState.player.currentStationId, gameState.destinationId)}</span> マス</span>
-            </div>
-          </div>
-
-          <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden shrink-0">
-            <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
-            <h2 className="text-lg font-bold mb-2 text-red-400">CPU</h2>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-400">現在地:</span>
-              <span className="font-bold">{getStationName(gameState.cpu.currentStationId)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm mt-1">
-              <span className="text-gray-400">所持金:</span>
-              <span className="font-mono text-lg font-bold">¥{gameState.cpu.money.toLocaleString()}万</span>
-            </div>
-            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-800">
-              <span className="text-gray-500">目的地まで:</span>
-              <span className="text-gray-400">あと <span className="font-bold text-white">{gameState.getDistanceBfs(gameState.cpu.currentStationId, gameState.destinationId)}</span> マス</span>
-            </div>
-          </div>
-
-          <div className="bg-gray-900 p-4 rounded-lg flex-1 flex flex-col min-h-0">
+          <div className="bg-gray-900 p-4 rounded-lg shrink-0 flex flex-col">
             <h2 className="text-lg font-bold mb-2 text-yellow-400 border-b border-gray-700 pb-2 shrink-0">進行状況</h2>
 
             <div className="flex justify-between items-center mb-3 mt-2">
@@ -196,6 +162,42 @@ export default function TokyoTrainSugorokuPage() {
             </div>
 
           </div>
+
+<div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden shrink-0">
+            <div className="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
+            <h2 className="text-lg font-bold mb-2 text-green-400">プレイヤー</h2>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-400">現在地:</span>
+              <span className="font-bold">{getStationName(gameState.player.currentStationId)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm mt-1">
+              <span className="text-gray-400">所持金:</span>
+              <span className="font-mono text-lg font-bold">¥{gameState.player.money.toLocaleString()}万</span>
+            </div>
+            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-800">
+              <span className="text-gray-500">目的地まで:</span>
+              <span className="text-gray-400">あと <span className="font-bold text-white">{gameState.getDistanceBfs(gameState.player.currentStationId, gameState.destinationId)}</span> マス</span>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden shrink-0">
+            <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
+            <h2 className="text-lg font-bold mb-2 text-red-400">CPU</h2>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-400">現在地:</span>
+              <span className="font-bold">{getStationName(gameState.cpu.currentStationId)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm mt-1">
+              <span className="text-gray-400">所持金:</span>
+              <span className="font-mono text-lg font-bold">¥{gameState.cpu.money.toLocaleString()}万</span>
+            </div>
+            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-800">
+              <span className="text-gray-500">目的地まで:</span>
+              <span className="text-gray-400">あと <span className="font-bold text-white">{gameState.getDistanceBfs(gameState.cpu.currentStationId, gameState.destinationId)}</span> マス</span>
+            </div>
+          </div>
+
+
         </div>
       </main>
     </div>
