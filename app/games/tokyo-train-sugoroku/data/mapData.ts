@@ -69,6 +69,7 @@ const yamanoteStationNames = [
 ];
 
 const stations: Record<string, Station> = {};
+let stationCounter = 0;
 
 // 1. 山手線の駅を生成
 yamanoteStationNames.forEach((name, index) => {
@@ -82,7 +83,7 @@ yamanoteStationNames.forEach((name, index) => {
 
   // 駅種別をランダムに設定（ただし東京や新宿など主要駅はプラスに）
   let type: StationType = 'neutral';
-  const r = Math.random();
+  const r = (index * 13) % 100 / 100; // deterministic pseudo-random
   if (r < 0.4) type = 'plus';
   else if (r < 0.7) type = 'minus';
 
@@ -138,13 +139,13 @@ const buildLine = (lineType: LineType, stationsInfo: {name: string, x?: number, 
             }
         } else {
             // 新規の駅
-            currentId = `${lineType}_${Math.random().toString(36).substring(2, 9)}_${i}`;
+            currentId = `${lineType}_${stationCounter++}_${i}`;
             stations[currentId] = {
                 id: currentId,
                 name: info.name,
                 x: info.x!,
                 y: info.y!,
-                type: Math.random() > 0.5 ? 'plus' : 'minus',
+                type: (stationCounter % 2 === 0) ? 'plus' : 'minus',
                 lines: [lineType],
                 next: []
             };

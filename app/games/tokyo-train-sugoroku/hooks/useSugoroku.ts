@@ -68,7 +68,8 @@ export function useSugoroku() {
   const [logs, setLogs] = useState<string[]>(['ゲームスタート！']);
 
   const addLog = useCallback((message: string) => {
-    setLogs(prev => [...prev, message]);
+    // 最新のログを上に追加し、最大50件まで保持する
+    setLogs(prev => [message, ...prev].slice(0, 50));
   }, []);
 
   // --- 移動ロジック（到達可能駅の算出） ---

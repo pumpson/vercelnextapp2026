@@ -9,12 +9,6 @@ import { MAP_DATA } from "./data/mapData";
 
 export default function TokyoTrainSugorokuPage() {
   const gameState = useSugoroku();
-  const logsEndRef = useRef<HTMLDivElement>(null);
-
-  // ログが追加されたら自動スクロール
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [gameState.logs]);
 
   // 駅名を取得するヘルパー
   const getStationName = (id: string) => {
@@ -40,7 +34,7 @@ export default function TokyoTrainSugorokuPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col md:flex-row relative">
+      <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
 
         {/* Left Sidebar (Message Log) */}
         <div className="w-full md:w-64 bg-gray-900 border-r border-gray-700 p-4 flex flex-col z-20 shadow-[10px_0_15px_-3px_rgba(0,0,0,0.3)]">
@@ -49,7 +43,7 @@ export default function TokyoTrainSugorokuPage() {
             {gameState.logs.map((log, i) => (
               <div key={i} className="border-b border-gray-800/50 pb-2 last:border-0">{log}</div>
             ))}
-            <div ref={logsEndRef} />
+
           </div>
         </div>
 
