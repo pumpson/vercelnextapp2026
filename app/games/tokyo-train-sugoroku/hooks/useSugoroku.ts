@@ -76,11 +76,19 @@ export function useSugoroku() {
 
   // ちょうど N 歩で到達できる駅のIDリストを算出する (DFS)
   // 戻り値は Map<到達駅ID, 到達駅までの経路(駅IDの配列)>
-  const getReachableStations = useCallback((startStationId: string, steps: number): Map<string, string[]> => {
+  const getReachableStations = useCallback((startStationId: string, steps: number, currentDestinationId?: string): Map<string, string[]> => {
     const reachable = new Map<string, string[]>();
 
     const dfs = (currentId: string, prevId: string | null, currentSteps: number, path: string[]) => {
       const currentPath = [...path, currentId];
+
+      // 目的地にピッタリでなくても通過時にゴールとする
+      if (currentDestinationId && currentId === currentDestinationId) {
+        if (!reachable.has(currentId)) {
+          reachable.set(currentId, currentPath);
+        }
+        return;
+      }
 
       if (currentSteps === steps) {
         // 同じ駅に複数ルートで到達できる場合、最初のルートを採用する（シンプル化のため）
@@ -155,7 +163,7 @@ export function useSugoroku() {
 
     if (phase === 'player_dice') {
         // プレイヤーの場合は到達可能駅を算出
-        const routes = getReachableStations(player.currentStationId, result);
+        const routes = getReachableStations(player.currentStationId, result, destinationId);
         setPlayerRoutes(routes);
         addLog(`行きたい駅（光っている駅）をタップしてください。`);
         setPhase('player_select_destination');
@@ -388,7 +396,7 @@ export function useSugoroku() {
     // サイコロを振った後、CPUのルートを決定してアニメーションを開始する
     if (phase === 'cpu_move' && animatingEntity === null && diceResult !== null) {
         // 出目の数だけ進んだ到達可能駅から、目的地に最も近い駅を選ぶ
-        const reachableMap = getReachableStations(cpu.currentStationId, diceResult);
+        const reachableMap = getReachableStations(cpu.currentStationId, diceResult, destinationId);
         let bestTarget = "";
         let minDistance = Infinity;
         let bestRoute: string[] = [];
