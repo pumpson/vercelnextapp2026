@@ -135,6 +135,7 @@ const buildLine = (lineType: LineType, stationsInfo: {name: string, x?: number, 
 
 
 // 2. 銀座線の駅を生成 (渋谷〜浅草)
+// ユーザー要望により、神田〜上野間は山手線（神田→秋葉原→御徒町→上野）の経路に統一する
 buildLine('ginza', [
   { name: "渋谷" },
   { name: "表参道", x: CENTER_X - 450, y: CENTER_Y + 100 },
@@ -145,6 +146,8 @@ buildLine('ginza', [
   { name: "銀座", x: CENTER_X + 450, y: CENTER_Y + 400 },
   { name: "日本橋", x: CENTER_X + 550, y: CENTER_Y + 200 },
   { name: "神田" },
+  { name: "秋葉原" }, // 並行路線を統一
+  { name: "御徒町" }, // 並行路線を統一
   { name: "上野" },
   { name: "浅草", x: CENTER_X + 800, y: CENTER_Y - 500 },
 ]);
