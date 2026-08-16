@@ -26,9 +26,9 @@ export default function TokyoTrainSugorokuPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="h-screen w-screen overflow-hidden bg-gray-900 text-white flex flex-col">
       {/* Header */}
-      <header className="p-4 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
+      <header className="p-4 bg-gray-800 border-b border-gray-700 flex items-center justify-between shrink-0">
         <Link href="/games" className="flex items-center text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-5 h-5 mr-2" />
           ゲーム一覧に戻る
@@ -92,9 +92,9 @@ export default function TokyoTrainSugorokuPage() {
         </div>
 
         {/* Sidebar (Status & Controls) */}
-        <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 p-4 flex flex-col gap-4 z-20 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.3)]">
+        <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 p-4 flex flex-col gap-4 z-20 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.3)] overflow-y-auto">
 
-          <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden">
+          <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden shrink-0">
             <div className="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
             <h2 className="text-lg font-bold mb-2 text-green-400">プレイヤー</h2>
             <div className="flex justify-between items-center text-sm">
@@ -111,7 +111,7 @@ export default function TokyoTrainSugorokuPage() {
             </div>
           </div>
 
-          <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden">
+          <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden shrink-0">
             <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>
             <h2 className="text-lg font-bold mb-2 text-red-400">CPU</h2>
             <div className="flex justify-between items-center text-sm">
@@ -128,8 +128,8 @@ export default function TokyoTrainSugorokuPage() {
             </div>
           </div>
 
-          <div className="bg-gray-900 p-4 rounded-lg flex-1 flex flex-col min-h-[300px]">
-            <h2 className="text-lg font-bold mb-2 text-yellow-400 border-b border-gray-700 pb-2">進行状況</h2>
+          <div className="bg-gray-900 p-4 rounded-lg flex-1 flex flex-col min-h-0">
+            <h2 className="text-lg font-bold mb-2 text-yellow-400 border-b border-gray-700 pb-2 shrink-0">進行状況</h2>
 
             <div className="flex justify-between items-center mb-3 mt-2">
               <span className="text-gray-400 text-sm">現在の月:</span>
@@ -142,7 +142,7 @@ export default function TokyoTrainSugorokuPage() {
             </div>
 
             {/* Controls */}
-            <div className="mb-4">
+            <div className="mb-4 shrink-0">
               {gameState.phase === 'player_dice' && (
                 <button
                   onClick={gameState.rollDice}

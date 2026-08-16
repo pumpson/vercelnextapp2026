@@ -5,7 +5,7 @@
 export type StationType = 'plus' | 'minus' | 'neutral';
 
 // 路線を表す型
-export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon';
+export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku';
 
 // 駅のデータ構造
 export interface Station {
@@ -29,6 +29,9 @@ export const LineColors: Record<LineType, string> = {
   tozai: '#00A7DB',      // 東京メトロ東西線（スカイブルー）
   chiyoda: '#009944',    // 東京メトロ千代田線（グリーン）
   hanzomon: '#8F76D6',   // 東京メトロ半蔵門線（パープル）
+  saikyo: '#00977B',     // 埼京線（グリーン）
+  shonan: '#E21F26',     // 湘南新宿ライン（赤系）
+  namboku: '#00AC9B',    // 南北線（エメラルド）
 };
 
 // --- マップデータ作成の設計方針 ---
@@ -164,7 +167,7 @@ buildLine('marunouchi', [
   { name: "新宿" },
 ]);
 
-// 4. 中央線の駅を生成 (東京〜新宿〜高尾方面)
+// 4. 中央線の駅を生成 (東京〜新宿〜八王子方面)
 buildLine('chuo', [
   { name: "東京" },
   { name: "神田" },
@@ -177,6 +180,9 @@ buildLine('chuo', [
   { name: "荻窪", x: CENTER_X - 1300, y: CENTER_Y - 350 },
   { name: "吉祥寺", x: CENTER_X - 1500, y: CENTER_Y - 400 },
   { name: "三鷹", x: CENTER_X - 1700, y: CENTER_Y - 450 },
+  { name: "国分寺", x: CENTER_X - 1900, y: CENTER_Y - 500 },
+  { name: "立川", x: CENTER_X - 2200, y: CENTER_Y - 550 },
+  { name: "八王子", x: CENTER_X - 2500, y: CENTER_Y - 600 },
 ]);
 
 // 5. 小田急線の駅を生成 (新宿〜町田方面)
@@ -191,7 +197,7 @@ buildLine('odakyu', [
   { name: "町田", x: CENTER_X - 2000, y: CENTER_Y + 950 },
 ]);
 
-// 6. 京王線の駅を生成 (新宿〜調布方面)
+// 6. 京王線の駅を生成 (新宿〜八王子方面)
 buildLine('keio', [
   { name: "新宿" },
   { name: "笹塚", x: CENTER_X - 850, y: CENTER_Y },
@@ -199,6 +205,9 @@ buildLine('keio', [
   { name: "千歳烏山", x: CENTER_X - 1250, y: CENTER_Y + 50 },
   { name: "調布", x: CENTER_X - 1600, y: CENTER_Y + 100 },
   { name: "府中", x: CENTER_X - 1900, y: CENTER_Y + 150 },
+  { name: "聖蹟桜ヶ丘", x: CENTER_X - 2100, y: CENTER_Y + 100 },
+  { name: "高幡不動", x: CENTER_X - 2300, y: CENTER_Y + 50 },
+  { name: "八王子" }, // 中央線と共有
 ]);
 
 // 7. 東西線 (中野〜西船橋方面)
@@ -245,6 +254,54 @@ buildLine('hanzomon', [
   { name: "清澄白河", x: CENTER_X + 900, y: CENTER_Y + 200 },
   { name: "錦糸町", x: CENTER_X + 1100, y: CENTER_Y - 100 },
   { name: "押上", x: CENTER_X + 1300, y: CENTER_Y - 300 },
+]);
+
+// 10. 埼京線 (大崎〜大宮方面)
+buildLine('saikyo', [
+  { name: "大崎" },
+  { name: "恵比寿" },
+  { name: "渋谷" },
+  { name: "新宿" },
+  { name: "池袋" },
+  { name: "板橋", x: CENTER_X - 200, y: CENTER_Y - 800 },
+  { name: "十条", x: CENTER_X - 100, y: CENTER_Y - 950 },
+  { name: "赤羽", x: CENTER_X, y: CENTER_Y - 1100 },
+  { name: "戸田公園", x: CENTER_X, y: CENTER_Y - 1300 },
+  { name: "武蔵浦和", x: CENTER_X, y: CENTER_Y - 1500 },
+  { name: "大宮", x: CENTER_X, y: CENTER_Y - 1800 },
+]);
+
+// 11. 湘南新宿ライン (横浜〜赤羽方面)
+buildLine('shonan', [
+  { name: "横浜", x: CENTER_X - 1000, y: CENTER_Y + 1500 },
+  { name: "武蔵小杉", x: CENTER_X - 500, y: CENTER_Y + 1100 },
+  { name: "大崎" },
+  { name: "恵比寿" },
+  { name: "渋谷" },
+  { name: "新宿" },
+  { name: "池袋" },
+  { name: "赤羽" },
+  { name: "浦和", x: CENTER_X + 300, y: CENTER_Y - 1400 },
+  { name: "大宮" },
+]);
+
+// 12. 南北線 (目黒〜赤羽岩淵方面)
+buildLine('namboku', [
+  { name: "目黒" },
+  { name: "白金台", x: CENTER_X + 100, y: CENTER_Y + 800 },
+  { name: "白金高輪", x: CENTER_X + 250, y: CENTER_Y + 700 },
+  { name: "麻布十番", x: CENTER_X + 300, y: CENTER_Y + 600 },
+  { name: "六本木一丁目", x: CENTER_X + 150, y: CENTER_Y + 500 },
+  { name: "溜池山王" },
+  { name: "永田町" },
+  { name: "四ツ谷" },
+  { name: "市ヶ谷", x: CENTER_X - 50, y: CENTER_Y - 50 },
+  { name: "飯田橋" },
+  { name: "後楽園" },
+  { name: "東大前", x: CENTER_X + 350, y: CENTER_Y - 450 },
+  { name: "駒込" },
+  { name: "王子", x: CENTER_X + 500, y: CENTER_Y - 900 },
+  { name: "赤羽岩淵", x: CENTER_X + 400, y: CENTER_Y - 1100 },
 ]);
 
 export const MAP_DATA: Station[] = Object.values(stations);
