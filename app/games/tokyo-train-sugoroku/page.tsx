@@ -41,7 +41,19 @@ export default function TokyoTrainSugorokuPage() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col md:flex-row relative">
-        {/* Map Area */}
+
+        {/* Left Sidebar (Message Log) */}
+        <div className="w-full md:w-64 bg-gray-900 border-r border-gray-700 p-4 flex flex-col z-20 shadow-[10px_0_15px_-3px_rgba(0,0,0,0.3)]">
+          <h2 className="text-lg font-bold mb-3 text-blue-400 border-b border-gray-700 pb-2 shrink-0">メッセージログ</h2>
+          <div className="flex-1 overflow-y-auto text-sm text-gray-300 space-y-2 bg-gray-950 p-3 rounded border border-gray-800">
+            {gameState.logs.map((log, i) => (
+              <div key={i} className="border-b border-gray-800/50 pb-2 last:border-0">{log}</div>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
+
+        {/* Center: Map Area */}
         <div className="flex-1 bg-gray-950 relative overflow-hidden flex flex-col">
           <MapViewer
             playerStationId={gameState.player.currentStationId}
@@ -189,13 +201,6 @@ export default function TokyoTrainSugorokuPage() {
               )}
             </div>
 
-            {/* Message Log */}
-            <div className="overflow-y-auto text-sm text-gray-300 space-y-2 bg-gray-950 p-3 rounded border border-gray-800 h-32 shrink-0">
-              {gameState.logs.map((log, i) => (
-                <div key={i} className="border-b border-gray-800/50 pb-1 last:border-0">{log}</div>
-              ))}
-              <div ref={logsEndRef} />
-            </div>
           </div>
         </div>
       </main>
