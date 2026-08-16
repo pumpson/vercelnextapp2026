@@ -105,6 +105,10 @@ export default function TokyoTrainSugorokuPage() {
               <span className="text-gray-400">所持金:</span>
               <span className="font-mono text-lg font-bold">¥{gameState.player.money.toLocaleString()}万</span>
             </div>
+            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-800">
+              <span className="text-gray-500">目的地まで:</span>
+              <span className="text-gray-400">あと <span className="font-bold text-white">{gameState.getDistanceBfs(gameState.player.currentStationId, gameState.destinationId)}</span> マス</span>
+            </div>
           </div>
 
           <div className="bg-gray-900 p-4 rounded-lg relative overflow-hidden">
@@ -117,6 +121,10 @@ export default function TokyoTrainSugorokuPage() {
             <div className="flex justify-between items-center text-sm mt-1">
               <span className="text-gray-400">所持金:</span>
               <span className="font-mono text-lg font-bold">¥{gameState.cpu.money.toLocaleString()}万</span>
+            </div>
+            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-gray-800">
+              <span className="text-gray-500">目的地まで:</span>
+              <span className="text-gray-400">あと <span className="font-bold text-white">{gameState.getDistanceBfs(gameState.cpu.currentStationId, gameState.destinationId)}</span> マス</span>
             </div>
           </div>
 
@@ -133,16 +141,8 @@ export default function TokyoTrainSugorokuPage() {
               <span className="font-bold text-white text-lg">{getStationName(gameState.destinationId)}</span>
             </div>
 
-            {/* Message Log */}
-            <div className="flex-1 overflow-y-auto text-sm text-gray-300 space-y-2 mb-4 bg-gray-950 p-3 rounded border border-gray-800">
-              {gameState.logs.map((log, i) => (
-                <div key={i} className="border-b border-gray-800/50 pb-1 last:border-0">{log}</div>
-              ))}
-              <div ref={logsEndRef} />
-            </div>
-
             {/* Controls */}
-            <div className="mt-auto">
+            <div className="mb-4">
               {gameState.phase === 'player_dice' && (
                 <button
                   onClick={gameState.rollDice}
@@ -187,6 +187,14 @@ export default function TokyoTrainSugorokuPage() {
                   <div className="text-yellow-400 font-bold">月末処理中...</div>
                 </div>
               )}
+            </div>
+
+            {/* Message Log */}
+            <div className="flex-1 overflow-y-auto text-sm text-gray-300 space-y-2 bg-gray-950 p-3 rounded border border-gray-800 min-h-[150px]">
+              {gameState.logs.map((log, i) => (
+                <div key={i} className="border-b border-gray-800/50 pb-1 last:border-0">{log}</div>
+              ))}
+              <div ref={logsEndRef} />
             </div>
           </div>
         </div>

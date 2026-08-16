@@ -387,5 +387,6 @@ export function useSugoroku() {
     checkDestination,
     applyStationEffect,
     endTurn,
+    getDistanceBfs,
   };
 }
