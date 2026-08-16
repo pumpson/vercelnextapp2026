@@ -5,7 +5,7 @@
 export type StationType = 'plus' | 'minus' | 'neutral';
 
 // 路線を表す型
-export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku' | 'denentoshi' | 'toyoko' | 'yokohama' | 'nambu' | 'yurikamome' | 'rinkai' | 'tokaido' | 'yurakucho' | 'ikegami' | 'seibuShinjuku' | 'seibuIkebukuro' | 'keihinTohoku' | 'tohoku' | 'tamaMonorail' | 'tobuTojo' | 'tobuSkytree';
+export type LineType = 'yamanote' | 'ginza' | 'marunouchi' | 'chuo' | 'odakyu' | 'keio' | 'tozai' | 'chiyoda' | 'hanzomon' | 'saikyo' | 'shonan' | 'namboku' | 'denentoshi' | 'toyoko' | 'yokohama' | 'nambu' | 'yurikamome' | 'rinkai' | 'tokaido' | 'yurakucho' | 'ikegami' | 'seibuShinjuku' | 'seibuIkebukuro' | 'keihinTohoku' | 'tohoku' | 'tamaMonorail' | 'tobuTojo' | 'tobuSkytree' | 'joban' | 'keiseiMain' | 'keiseiOshiage' | 'keiyo' | 'musashino';
 
 // 駅のデータ構造
 export interface Station {
@@ -48,6 +48,11 @@ export const LineColors: Record<LineType, string> = {
   tamaMonorail: '#E55A9B', // 多摩モノレール（ピンク）
   tobuTojo: '#001E62',     // 東武東上線（紺）
   tobuSkytree: '#0065B3',  // 東武スカイツリーライン（青）
+  joban: '#00B28C',        // 常磐線（エメラルドグリーン）
+  keiseiMain: '#005BBB',   // 京成本線（青）
+  keiseiOshiage: '#FF69B4', // 京成押上線（ピンク）
+  keiyo: '#C9242B',        // 京葉線（ワインレッド）
+  musashino: '#F15A22',    // 武蔵野線（オレンジ）
 };
 
 // --- マップデータ作成の設計方針 ---
@@ -133,7 +138,7 @@ const buildLine = (lineType: LineType, stationsInfo: {name: string, x?: number, 
             }
         } else {
             // 新規の駅
-            currentId = `${lineType}_${i}`;
+            currentId = `${lineType}_${Math.random().toString(36).substring(2, 9)}_${i}`;
             stations[currentId] = {
                 id: currentId,
                 name: info.name,
