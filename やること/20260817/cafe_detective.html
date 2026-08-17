@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cafe Detective - 怪盗三毛猫事件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* カスタムアニメーションとスタイル */
+        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Serif+JP:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Serif JP', serif;
+            background-color: #1a1a1a;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* キャラクターのアニメーション */
+        .char-enter {
+            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .char-breathe {
+            animation: breathe 3s infinite ease-in-out;
+        }
+        .char-shake {
+            animation: shake 0.5s;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(80px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes breathe {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+            100% { transform: translateX(0); }
+        }
+
+        /* テキスト送り待機アイコンの点滅 */
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+        /* 画面揺れエフェクト（逆転裁判風） */
+        .screen-shake {
+            animation: screenShake 0.3s ease-in-out;
+        }
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 5px); }
+            40% { transform: translate(10px, -5px); }
+            60% { transform: translate(-10px, -5px); }
+            80% { transform: translate(10px, 5px); }
+        }
+
+        /* 背景 */
+        .bg-cafe { background: linear-gradient(to bottom, #3e2723, #1b1005); }
+        .bg-street { background: linear-gradient(to bottom, #111827, #000000); }
+        
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="h-screen w-full flex items-center justify-center overflow-hidden text-gray-100">
+
+    <div id="game-container" class="relative w-full h-full max-w-4xl md:h-[600px] md:aspect-video bg-black shadow-2xl overflow-hidden md:rounded-xl cursor-pointer transition-transform duration-75">
+        
+        <!-- 背景レイヤー -->
+        <div id="background" class="absolute inset-0 bg-cafe transition-colors duration-1000"></div>
+        <div id="effects" class="absolute inset-0 opacity-20 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8L3N2Zz4=')]"></div>
+
+        <!-- キャラクター表示レイヤー -->
+        <div class="absolute inset-0 flex justify-center items-end pb-[15%] md:pb-[8%] pointer-events-none">
+            <div id="character" class="text-[120px] md:text-[220px] transition-opacity duration-200 opacity-0 transform origin-bottom drop-shadow-2xl">
+                <!-- 絵文字 -->
+            </div>
+        </div>
+
+        <!-- UIレイヤー -->
+        <div id="ui-layer" class="absolute inset-x-0 bottom-0 p-4 md:p-6 flex flex-col justify-end pointer-events-none h-[60%]">
+            
+            <!-- 選択肢コンテナ -->
+            <div id="choices-container" class="flex flex-col gap-3 items-center mb-16 hidden pointer-events-auto"></div>
+
+            <!-- 会話ウィンドウ -->
+            <div class="relative bg-black/85 border-2 border-gray-700 rounded-lg p-5 md:p-8 backdrop-blur-md pointer-events-auto shadow-[0_0_30px_rgba(0,0,0,0.9)]">
+                
+                <!-- 名前欄 -->
+                <div id="speaker-box" class="absolute -top-6 left-4 px-5 py-1 rounded-t-md font-bold tracking-widest text-sm md:text-base border-2 border-b-0 hidden text-white">
+                    名前
+                </div>
+
+                <!-- テキスト本文 -->
+                <div id="dialogue-text" class="text-white text-lg md:text-2xl leading-relaxed min-h-[4.5rem] md:min-h-[6.5rem] font-serif">
+                    <!-- テキスト -->
+                </div>
+
+                <!-- クリック待ちアイコン -->
+                <div id="next-indicator" class="absolute bottom-4 right-4 text-gray-400 text-2xl blink hidden">
+                    ▶
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 話者ごとのカラー設定
+        const speakerColors = {
+            "探偵の女": "bg-red-900 border-red-700",
+            "サラリーマン": "bg-blue-900 border-blue-700",
+            "占い師": "bg-purple-900 border-purple-700",
+            "マスター(あなた)": "bg-gray-800 border-gray-600",
+            "???": "bg-gray-900 border-gray-700",
+            "三毛猫": "bg-orange-800 border-orange-600"
+        };
+
+        // --- シナリオデータ ---
+        const story = {
+            start: [
+                { text: "深夜2時。外は冷たい雨が降っている。\nカフェには、静かなジャズの音だけが響いていた。", bg: "bg-cafe" },
+                { text: "カランコロン…", bg: "bg-cafe" },
+                { speaker: "???", text: "……開いてるかしら？", char: "🕵️‍♀️", charAnim: "char-enter" },
+                { speaker: "マスター(あなた)", text: "ええ、どうぞ。\nお好きな席へ。", char: "🕵️‍♀️", charAnim: "char-breathe" },
+                { speaker: "探偵の女", text: "マスター、ホットコーヒーをお願い。\n……それと、ひとつ聞きたいんだけど。", char: "🕵️‍♀️", charAnim: "char-breathe" },
+                { speaker: "探偵の女", text: "昨日、この辺りで『シルクハットを被った三毛猫』を見なかった？\n厄介な事件のホシなのよ。", char: "🕵️‍♀️", charAnim: "char-breathe", 
+                    choices: [
+                        { label: "見た", target: "saw_cat" },
+                        { label: "見ていない", target: "not_saw_cat" }
+                    ]
+                }
+            ],
+            saw_cat: [
+                { speaker: "マスター(あなた)", text: "ええ、奇妙な猫だったので覚えています。\n路地裏の方へ歩いていきましたよ。", char: "🕵️‍♀️", charAnim: "char-breathe" },
+                { speaker: "探偵の女", text: "本当！？ 助かるわ！\nやっぱり私の推理は間違っていなかった！", char: "✨🕵️‍♀️✨", charAnim: "char-enter", effect: "shake" },
+                { speaker: "探偵の女", text: "コーヒーを飲んだら、すぐ裏路地を調べてみるわ！", char: "🕵️‍♀️", charAnim: "char-breathe", nextScene: "salaryman_enter" }
+            ],
+            not_saw_cat: [
+                { speaker: "マスター(あなた)", text: "いいえ……雨がひどくて、外の様子は見ていません。", char: "🕵️‍♀️", charAnim: "char-breathe" },
+                { speaker: "探偵の女", text: "そう……残念。手掛かりが途絶えちゃったわ。", char: "💧🕵️‍♀️", charAnim: "char-breathe" },
+                { speaker: "探偵の女", text: "仕方ないわね。少しここで雨宿りしていくわ。", char: "☕🕵️‍♀️", charAnim: "char-enter", nextScene: "salaryman_enter" }
+            ],
+            salaryman_enter: [
+                { text: "カランコロン…", char: "" },
+                { speaker: "???", text: "はぁ、はぁ……ずぶ濡れだ……。\nマスター、エスプレッソを頼む……。", char: "👨‍💼", charAnim: "char-enter" },
+                { speaker: "マスター(あなた)", text: "お疲れのようですね。\nタオルをどうぞ。", char: "👨‍💼", charAnim: "char-breathe" },
+                { speaker: "サラリーマン", text: "ありがとう……。実は、大事な『商売道具』を盗まれてしまってね。\n酷い目に遭ったよ……。", char: "💦👨‍💼", charAnim: "char-shake",
+                    choices: [
+                        { label: "何を盗まれたのか聞く", target: "ask_stolen" },
+                        { label: "黙ってコーヒーを出す", target: "serve_silent" }
+                    ]
+                }
+            ],
+            ask_stolen: [
+                { speaker: "マスター(あなた)", text: "何を盗まれたのですか？", char: "👨‍💼", charAnim: "char-breathe" },
+                { speaker: "サラリーマン", text: "先代から受け継いだ、手品用のアンティーク『シルクハット』だよ。\nしかも、信じられないことに……", char: "👨‍💼", charAnim: "char-breathe", nextScene: "detective_reacts" }
+            ],
+            serve_silent: [
+                { text: "（エスプレッソを静かに差し出す）", char: "☕", charAnim: "char-enter" },
+                { speaker: "サラリーマン", text: "……信じられないかもしれないが、盗んだ犯人は人間じゃないんだ。\n私の手品用の『シルクハット』を……", char: "👨‍💼", charAnim: "char-breathe", nextScene: "detective_reacts" }
+            ],
+            detective_reacts: [
+                { speaker: "探偵の女", text: "ちょっとアンタ！！\nその話、詳しく聞かせて！！", char: "❗️🕵️‍♀️", charAnim: "char-enter", effect: "shake" },
+                { speaker: "サラリーマン", text: "ひっ！？ な、なんだね君は！", char: "💦👨‍💼", charAnim: "char-shake" },
+                { speaker: "探偵の女", text: "私は探偵よ！\nひょっとして、アンタの帽子を盗んだのは『三毛猫』じゃない！？", char: "🕵️‍♀️", charAnim: "char-breathe" },
+                { speaker: "サラリーマン", text: "そ、その通りだ！ なぜそれを……！？", char: "😲👨‍💼", charAnim: "char-enter" },
+                { speaker: "マスター(あなた)", text: "（点と点が繋がったようだ……）", char: "" },
+                { text: "カランコロン…", char: "" },
+                { text: "その時、店のドアが開き、奇妙な人物が入ってきた。", char: "", nextScene: "fortune_teller_enter" }
+            ],
+            fortune_teller_enter: [
+                { speaker: "占い師", text: "フフフ……星の導きにより、迷える子羊たちが集まっているようね。", char: "🔮", charAnim: "char-enter" },
+                { speaker: "マスター(あなた)", text: "いらっしゃいませ。\n……そ、その腕に抱いているのは……！", char: "🔮", charAnim: "char-breathe" },
+                { speaker: "三毛猫", text: "ニャア。", char: "🐱🎩", charAnim: "char-enter" },
+                { speaker: "サラリーマン", text: "ああっ！ 私の帽子！！", char: "😱👨‍💼", charAnim: "char-shake", effect: "shake" },
+                { speaker: "探偵の女", text: "探していた三毛猫！！\nちょっと占い師、その猫を渡しなさい！", char: "💢🕵️‍♀️", charAnim: "char-enter" },
+                { speaker: "占い師", text: "あら、この子は路地裏で震えていたのよ。\nこの不思議な帽子が、微かな『魔力』を放っていてね……引かれ合ったの。", char: "🔮", charAnim: "char-breathe" },
+                { text: "店内は一触即発の空気になった。\nマスターとして、どう立ち回るべきか……？", char: "🐱🎩", charAnim: "char-breathe",
+                    choices: [
+                        { label: "猫に温かいミルクをあげる", target: "end_milk" },
+                        { label: "帽子を返すよう占い師を説得する", target: "end_persuade" },
+                        { label: "自分の運勢を占ってもらう", target: "end_joke" }
+                    ]
+                }
+            ],
+            end_milk: [
+                { speaker: "マスター(あなた)", text: "まあまあ、皆さん落ち着いて。\nまずは猫ちゃんに、温かいミルクでも。", char: "🥛", charAnim: "char-enter" },
+                { speaker: "三毛猫", text: "ニャッ！", char: "🐱", charAnim: "char-enter" },
+                { text: "三毛猫はシルクハットを放り出し、カウンターのミルクへ飛びついた！", char: "🐱🥛", charAnim: "char-breathe" },
+                { speaker: "サラリーマン", text: "おお！ 帽子が戻ってきた！\nありがとう、マスター！", char: "😭👨‍💼", charAnim: "char-enter" },
+                { speaker: "探偵の女", text: "あっけなく事件解決ね。\nマスターの機転に乾杯。", char: "☕🕵️‍♀️", charAnim: "char-breathe" },
+                { speaker: "占い師", text: "フフ、平和な結末。\nこれもまた、星の導き通りだわ。", char: "🔮", charAnim: "char-breathe" },
+                { text: "深夜のカフェに、再び穏やかな時間が戻った。\n【 GOOD END : カフェ・ド・ミルク 】", char: "" }
+            ],
+            end_persuade: [
+                { speaker: "マスター(あなた)", text: "占い師さん、その帽子は彼の大事な商売道具です。\n返してあげてください。", char: "🔮", charAnim: "char-breathe" },
+                { speaker: "占い師", text: "あら、星の運命に逆らうというの？\n……いいわ、力づくで奪ってみなさい！", char: "🔥🔮", charAnim: "char-shake", effect: "shake" },
+                { speaker: "探偵の女", text: "マスター、下がって！\n私が相手よ！ 行くわよオオォォ！！", char: "🥊🕵️‍♀️", charAnim: "char-enter" },
+                { text: "ドタバタバタッ！！ ガシャーーーン！！", char: "💥", charAnim: "char-shake", effect: "shake" },
+                { speaker: "マスター(あなた)", text: "（頼むから、うちの店で暴れないでほしい……）", char: "🤦‍♂️", charAnim: "char-breathe" },
+                { text: "店の修繕費は、探偵にツケておくことにしよう。\n【 ACTION END : 深夜の大立ち回り 】", char: "" }
+            ],
+            end_joke: [
+                { speaker: "マスター(あなた)", text: "そんなことより占い師さん。\n私の明日の運勢を占ってください。", char: "🔮", charAnim: "char-breathe" },
+                { speaker: "占い師", text: "えっ？ あ、はい。\n……『大吉』ね。金運が絶好調よ。", char: "😅🔮", charAnim: "char-breathe" },
+                { speaker: "サラリーマン", text: "マスター！？ 私の帽子は！？", char: "💦👨‍💼", charAnim: "char-shake" },
+                { speaker: "探偵の女", text: "ちょっとマスター！\n事件はどうなったのよ！！", char: "💢🕵️‍♀️", charAnim: "char-shake", effect: "shake" },
+                { speaker: "マスター(あなた)", text: "大吉か……。\n明日は良いコーヒー豆が仕入れられそうだ。", char: "☕", charAnim: "char-breathe" },
+                { text: "事件は未解決のまま、夜は更けていく……。\n【 JOKE END : マイペース・マスター 】", char: "" }
+            ]
+        };
+
+        // --- ゲームのステート管理 ---
+        let currentScene = "start";
+        let currentLineIndex = 0;
+        let isTyping = false;
+        let currentText = "";
+        let typeTimeout;
+        let waitingForChoice = false;
+
+        // --- DOM要素 ---
+        const gameContainer = document.getElementById('game-container');
+        const background = document.getElementById('background');
+        const character = document.getElementById('character');
+        const speakerBox = document.getElementById('speaker-box');
+        const dialogueText = document.getElementById('dialogue-text');
+        const nextIndicator = document.getElementById('next-indicator');
+        const choicesContainer = document.getElementById('choices-container');
+
+        // --- 初期化 ---
+        function initGame() {
+            renderLine();
+            gameContainer.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON' || waitingForChoice) return;
+                advanceText();
+            });
+        }
+
+        // --- 画面揺れエフェクト ---
+        function triggerShake() {
+            gameContainer.classList.remove('screen-shake');
+            void gameContainer.offsetWidth; // reflow
+            gameContainer.classList.add('screen-shake');
+        }
+
+        // --- 描画処理 ---
+        function renderLine() {
+            const line = story[currentScene][currentLineIndex];
+            if (!line) return;
+
+            // 背景
+            if (line.bg) background.className = `absolute inset-0 transition-colors duration-1000 ${line.bg}`;
+
+            // エフェクト
+            if (line.effect === "shake") triggerShake();
+
+            // キャラクター
+            if (line.char !== undefined) { // 空文字でも処理する
+                if (line.char === "") {
+                    character.style.opacity = '0';
+                } else {
+                    character.innerText = line.char;
+                    character.className = `text-[120px] md:text-[220px] transition-opacity duration-200 opacity-100 transform origin-bottom drop-shadow-2xl ${line.charAnim || ''}`;
+                }
+            }
+
+            // 話者名とカラー
+            if (line.speaker) {
+                speakerBox.innerText = line.speaker;
+                speakerBox.style.display = 'block';
+                // デフォルトカラーをリセットして適用
+                speakerBox.className = `absolute -top-6 left-4 px-5 py-1 rounded-t-md font-bold tracking-widest text-sm md:text-base border-2 border-b-0 text-white shadow-lg ${speakerColors[line.speaker] || speakerColors["マスター(あなた)"]}`;
+            } else {
+                speakerBox.style.display = 'none';
+            }
+
+            // テキストタイピング開始
+            currentText = line.text;
+            dialogueText.innerHTML = "";
+            nextIndicator.style.display = 'none';
+            choicesContainer.classList.add('hidden');
+            choicesContainer.innerHTML = '';
+            waitingForChoice = false;
+            
+            startTyping();
+        }
+
+        // --- タイピング ---
+        function startTyping() {
+            isTyping = true;
+            let charIndex = 0;
+            
+            function typeNextChar() {
+                if (charIndex < currentText.length) {
+                    let char = currentText.charAt(charIndex);
+                    dialogueText.innerHTML += (char === '\n') ? '<br>' : char;
+                    charIndex++;
+                    typeTimeout = setTimeout(typeNextChar, 35); // 文字速度
+                } else {
+                    finishTyping();
+                }
+            }
+            typeNextChar();
+        }
+
+        function finishTyping() {
+            clearTimeout(typeTimeout);
+            isTyping = false;
+            dialogueText.innerHTML = currentText.replace(/\n/g, '<br>');
+            
+            const line = story[currentScene][currentLineIndex];
+            
+            if (line.choices) {
+                showChoices(line.choices);
+            } else {
+                // シーンの最後、または次がある場合は▼を表示
+                nextIndicator.style.display = 'block';
+            }
+        }
+
+        // --- 進行管理 ---
+        function advanceText() {
+            if (isTyping) {
+                finishTyping();
+                return;
+            }
+            if (waitingForChoice) return;
+
+            const currentLine = story[currentScene][currentLineIndex];
+            currentLineIndex++;
+
+            if (currentLineIndex < story[currentScene].length) {
+                renderLine();
+            } else {
+                // シーン終了時、nextSceneが設定されていれば自動ジャンプ
+                if (currentLine.nextScene) {
+                    currentScene = currentLine.nextScene;
+                    currentLineIndex = 0;
+                    renderLine();
+                } else {
+                    nextIndicator.style.display = 'none'; // 完全な終了
+                }
+            }
+        }
+
+        // --- 選択肢 ---
+        function showChoices(choices) {
+            waitingForChoice = true;
+            nextIndicator.style.display = 'none';
+            choicesContainer.classList.remove('hidden');
+
+            choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.innerText = choice.label;
+                btn.className = "w-full max-w-md bg-gray-900/90 border-2 border-gray-600 text-white py-3 px-6 rounded-md hover:bg-gray-700 hover:border-gray-400 hover:scale-[1.02] transition-all duration-200 text-left md:text-center text-lg shadow-lg font-bold";
+                
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    currentScene = choice.target;
+                    currentLineIndex = 0;
+                    renderLine();
+                };
+                choicesContainer.appendChild(btn);
+            });
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>

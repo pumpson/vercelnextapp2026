@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Supply Squad - 銃撃戦シミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* スマホでのスワイプによるスクロール防止 */
+        }
+        #gameCanvas {
+            background-color: #1e293b;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center w-screen h-screen p-2 md:p-6 select-none">
+
+    <div class="mb-2 text-center z-10">
+        <h1 class="text-3xl md:text-4xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow-sm">
+            SUPPLY SQUAD
+        </h1>
+        <p class="text-sm md:text-base text-slate-400 font-bold">自軍兵士をタップ(クリック)して弾薬を補給しろ！</p>
+    </div>
+
+    <div class="relative w-full max-w-5xl aspect-[16/9] bg-slate-900 rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        
+        <!-- UI Overlay -->
+        <div class="absolute top-0 left-0 w-full p-4 flex justify-between pointer-events-none items-start">
+            <div class="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 backdrop-blur-sm">
+                <span class="text-lg font-bold text-white tracking-widest">WAVE <span id="waveDisplay" class="text-blue-400 text-2xl">1</span></span>
+            </div>
+            
+            <div class="flex flex-col items-end w-1/2 max-w-[250px] bg-slate-900/80 p-2 rounded border border-slate-700 backdrop-blur-sm">
+                <div class="flex justify-between w-full mb-1">
+                    <span class="text-xs font-bold text-emerald-400 tracking-wider">SUPPLY POINTS</span>
+                    <span class="text-xs font-bold text-slate-300">COST: 25</span>
+                </div>
+                <div class="w-full h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-600 relative">
+                    <div id="supplyBar" class="h-full bg-gradient-to-r from-emerald-500 to-emerald-300 transition-all duration-100 w-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center pointer-events-auto backdrop-blur-md z-20">
+            <h2 class="text-5xl md:text-6xl font-black mb-2 tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 text-center leading-tight">
+                FRONTLINE<br>DEFENSE
+            </h2>
+            <p class="text-slate-300 mb-8 max-w-md text-center">
+                前線の兵士たちは君の補給を待っている。<br>
+                弾薬が切れた味方をタップして補給し、<br>迫り来る敵軍を撃退しろ！
+            </p>
+            <button id="startBtn" class="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_15px_rgba(37,99,235,0.5)] transition transform hover:scale-105 active:scale-95 tracking-widest text-lg border border-blue-400">
+                MISSION START
+            </button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="absolute inset-0 bg-red-950/90 flex flex-col items-center justify-center pointer-events-auto backdrop-blur-md z-20 hidden">
+            <h2 class="text-5xl font-black text-white mb-4 tracking-widest drop-shadow-[0_0_10px_rgba(220,38,38,0.8)]">SQUAD WIPED OUT</h2>
+            <p class="text-2xl text-slate-300 mb-8">Survived until Wave <span id="finalWave" class="text-red-400 font-bold"></span></p>
+            <button id="restartBtn" class="px-10 py-4 bg-white text-red-900 hover:bg-slate-200 font-bold rounded shadow-lg transition transform hover:scale-105 active:scale-95 tracking-widest border-2 border-red-900">
+                TRY AGAIN
+            </button>
+        </div>
+    </div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// 定数
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 450;
+const SUPPLY_COST = 25;
+const MAX_SUPPLY = 100;
+
+// ゲームステート
+const gameState = {
+    status: 'start', // start, playing, gameover, wave_clear
+    wave: 1,
+    supply: MAX_SUPPLY,
+    soldiers: [],
+    bullets: [],
+    particles: [],
+};
+
+// --- クラス定義 ---
+
+class Soldier {
+    constructor(x, y, team, maxHp) {
+        this.x = x;
+        this.y = y;
+        this.team = team; // 0: 味方(青), 1: 敵(赤)
+        this.state = 0; // 0: idle(しゃがみ), 1: shooting(立ち), 2: dead(死亡)
+        this.maxHp = maxHp || 100;
+        this.hp = this.maxHp;
+        this.maxAmmo = 6; // 弾切れを早くしてゲーム性を出す
+        this.ammo = this.maxAmmo;
+        this.stateTimer = Math.random() * 60;
+        this.direction = team === 0 ? 1 : -1;
+        this.muzzleFlash = 0;
+    }
+
+    update() {
+        if (this.state === 2) return; // 死亡時は何もしない
+
+        this.stateTimer--;
+
+        if (this.state === 0) { // 隠れている状態
+            if (this.stateTimer <= 0) {
+                if (this.ammo > 0) {
+                    // 撃つために立ち上がる
+                    this.state = 1;
+                    this.stateTimer = 15 + Math.random() * 15; // 立って狙う時間
+                    this.fire();
+                } else {
+                    // 弾切れ
+                    if (this.team === 1) {
+                        // 敵は一定時間で自動リロード
+                        this.ammo = this.maxAmmo;
+                        this.stateTimer = 90 + Math.random() * 60; 
+                    } else {
+                        // 味方はプレイヤーの補給待ち
+                        this.stateTimer = 60;
+                    }
+                }
+            }
+        } else if (this.state === 1) { // 撃っている状態
+            if (this.stateTimer <= 0) {
+                // 隠れる
+                this.state = 0;
+                // 次に顔を出すまでの時間（敵はWaveが進むと短くなる）
+                let baseWait = this.team === 1 ? Math.max(30, 120 - gameState.wave * 15) : 60;
+                this.stateTimer = baseWait + Math.random() * 60;
+            }
+        }
+    }
+
+    fire() {
+        // 生きている敵を探す
+        let enemies = gameState.soldiers.filter(s => s.team !== this.team && s.hp > 0);
+        if (enemies.length === 0) return;
+        
+        let target = enemies[Math.floor(Math.random() * enemies.length)];
+        
+        // 銃口の座標
+        let startX = this.x + (15 * this.direction);
+        let startY = this.y - 35; 
+        
+        // 狙い（命中率のブレ）
+        let targetY = target.y - 25; // 敵の中心あたりを狙う
+        let inaccuracyY = (Math.random() - 0.5) * 40; 
+        
+        gameState.bullets.push(new Bullet(
+            startX, startY, 
+            target.x, targetY + inaccuracyY, 
+            15, // ダメージ
+            this.team
+        ));
+        
+        this.ammo--;
+        this.muzzleFlash = 3;
+    }
+}
+
+class Bullet {
+    constructor(x, y, targetX, targetY, damage, team) {
+        this.x = x;
+        this.y = y;
+        this.oldX = x;
+        this.oldY = y;
+        this.damage = damage;
+        this.team = team;
+        this.speed = 25;
+        this.active = true;
+        
+        const angle = Math.atan2(targetY - y, targetX - x);
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+    }
+
+    update() {
+        this.oldX = this.x;
+        this.oldY = this.y;
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        if (this.x < 0 || this.x > CANVAS_WIDTH || this.y < 0 || this.y > CANVAS_HEIGHT) {
+            this.active = false;
+        }
+
+        this.checkCollision();
+    }
+
+    checkCollision() {
+        if (!this.active) return;
+
+        for (let s of gameState.soldiers) {
+            if (s.team === this.team) continue; // 味方撃ちなし
+
+            // 障害物判定（相手の前の土嚢）
+            let ox = s.team === 0 ? s.x + 25 : s.x - 40;
+            // 障害物の範囲: 幅15、高さ25(y-25 ~ y)
+            if (this.x >= ox - 5 && this.x <= ox + 20 && this.y >= s.y - 25 && this.y <= s.y) {
+                this.active = false;
+                // コンクリートの破片エフェクト
+                for(let i=0; i<4; i++) gameState.particles.push(new Particle(this.x, this.y, '#94A3B8'));
+                return;
+            }
+
+            if (s.hp <= 0) continue;
+
+            // 兵士の当たり判定
+            // state === 0 (しゃがみ): 当たり判定低い (y-20 ~ y)
+            // state === 1 (立ち): 当たり判定高い (y-45 ~ y)
+            let topY = s.state === 1 ? s.y - 45 : s.y - 20;
+            let hitW = 20;
+            let hitX = s.x - hitW / 2;
+
+            if (this.x >= hitX && this.x <= hitX + hitW && this.y >= topY && this.y <= s.y) {
+                // ヒット
+                s.hp -= this.damage;
+                this.active = false;
+                
+                // 血のエフェクト
+                for(let i=0; i<3; i++) gameState.particles.push(new Particle(this.x, this.y, '#DC2626'));
+                // ダメージテキスト
+                gameState.particles.push(new TextParticle(s.x, s.y - 50, `-${this.damage}`, '#F87171'));
+
+                if (s.hp <= 0) {
+                    s.hp = 0;
+                    s.state = 2; // 死亡
+                }
+                return;
+            }
+        }
+    }
+
+    draw(ctx) {
+        ctx.strokeStyle = this.team === 0 ? '#FEF08A' : '#FCA5A5'; // 味方は黄色、敵は赤っぽい弾
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.oldX, this.oldY);
+        ctx.lineTo(this.x, this.y);
+        ctx.stroke();
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vx = (Math.random() - 0.5) * 6;
+        this.vy = (Math.random() - 0.5) * 6 - 2; // 少し上向き
+        this.life = 15 + Math.random() * 10;
+        this.maxLife = this.life;
+        this.size = 2 + Math.random() * 3;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.2; // 重力
+        this.life--;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = this.life / this.maxLife;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+
+class TextParticle {
+    constructor(x, y, text, color) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.life = 40;
+        this.vy = -0.5;
+    }
+    update() {
+        this.y += this.vy;
+        this.life--;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = this.life / 40;
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 14px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        // 縁取り
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeText(this.text, this.x, this.y);
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.globalAlpha = 1;
+    }
+}
+
+// --- 描画関数 ---
+
+function drawSoldier(ctx, soldier) {
+    const { x, y, team, state, direction, ammo, hp, maxHp } = soldier;
+    const color = team === 0 ? '#60A5FA' : '#F87171'; // 青系と赤系
+    
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    
+    if (state === 2) { // 死亡
+        // 地面に倒れるポーズ
+        ctx.arc(x - 20 * direction, y - 5, 5, 0, Math.PI * 2); // 頭
+        ctx.moveTo(x - 15 * direction, y - 5);
+        ctx.lineTo(x + 5 * direction, y - 2); // 胴体
+        ctx.moveTo(x - 5 * direction, y - 3);
+        ctx.lineTo(x - 15 * direction, y + 2); // 腕
+        ctx.moveTo(x + 5 * direction, y - 2);
+        ctx.lineTo(x + 15 * direction, y); // 脚1
+        ctx.moveTo(x + 5 * direction, y - 2);
+        ctx.lineTo(x + 10 * direction, y + 4); // 脚2
+        ctx.stroke();
+        return;
+    }
+    
+    let headY = y - 35;
+    let bodyY = y - 15;
+    
+    if (state === 0) { // しゃがみ
+        headY = y - 20;
+        bodyY = y - 5;
+    }
+    
+    // 頭
+    ctx.arc(x, headY, 5, 0, Math.PI * 2);
+    
+    // 胴体
+    ctx.moveTo(x, headY + 5);
+    ctx.lineTo(x, bodyY);
+    
+    // 腕と銃
+    if (state === 1) { // 立ち・射撃
+        // 腕
+        ctx.moveTo(x, headY + 8);
+        ctx.lineTo(x + 12 * direction, headY + 7);
+        
+        // 銃
+        ctx.strokeStyle = '#9CA3AF'; // gray-400
+        ctx.lineWidth = 4;
+        ctx.moveTo(x + 8 * direction, headY + 5);
+        ctx.lineTo(x + 22 * direction, headY + 5);
+        ctx.stroke();
+        
+        // マズルフラッシュ
+        if (soldier.muzzleFlash > 0) {
+            ctx.fillStyle = '#FBBF24';
+            ctx.beginPath();
+            ctx.arc(x + 26 * direction, headY + 5, soldier.muzzleFlash * 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            soldier.muzzleFlash--;
+        }
+        
+        ctx.strokeStyle = color; // 色戻す
+        ctx.lineWidth = 3;
+    } else { // 腕下げる
+        ctx.moveTo(x, headY + 8);
+        ctx.lineTo(x + 8 * direction, headY + 16);
+    }
+    
+    // 脚
+    ctx.moveTo(x, bodyY);
+    ctx.lineTo(x - 8 * direction, y);
+    ctx.moveTo(x, bodyY);
+    ctx.lineTo(x + 8 * direction, y);
+    
+    ctx.stroke();
+
+    // --- UI表示 ---
+    const barW = 30;
+    const uiY = y - 55;
+
+    // HPバー
+    ctx.fillStyle = '#334155'; // 背景
+    ctx.fillRect(x - barW/2, uiY, barW, 4);
+    ctx.fillStyle = team === 0 ? '#34D399' : '#F87171'; // HP
+    ctx.fillRect(x - barW/2, uiY, barW * (hp / maxHp), 4);
+
+    // 弾薬表示
+    const p = ammo / soldier.maxAmmo;
+    ctx.fillStyle = p > 0.3 ? '#FCD34D' : '#EF4444';
+    let dotW = barW / soldier.maxAmmo - 1;
+    for(let i=0; i<soldier.maxAmmo; i++) {
+        if(i < ammo) {
+            ctx.fillRect(x - barW/2 + i * (dotW + 1), uiY + 6, dotW, 4);
+        }
+    }
+
+    // 弾切れアイコン
+    if (ammo === 0 && state === 0) {
+        ctx.fillStyle = '#EF4444';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        // 点滅効果
+        if (Math.floor(Date.now() / 200) % 2 === 0) {
+            ctx.fillText('AMMO!', x, uiY - 5);
+        }
+    }
+}
+
+function drawBackground(ctx) {
+    // 空と地面の境界
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, 120);
+
+    // 地面（戦場）
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 120, CANVAS_WIDTH, CANVAS_HEIGHT - 120);
+
+    // グリッド線で遠近感を少し
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    for(let i=150; i<CANVAS_HEIGHT; i+=50) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(CANVAS_WIDTH, i);
+        ctx.stroke();
+    }
+}
+
+function drawObstacles(ctx) {
+    ctx.fillStyle = '#475569'; // slate-600
+    gameState.soldiers.forEach(s => {
+        if (s.team === 0) { // 味方の前
+            ctx.fillRect(s.x + 25, s.y - 25, 15, 25);
+            ctx.beginPath();
+            ctx.roundRect(s.x + 23, s.y - 27, 19, 10, 2);
+            ctx.fill();
+        } else { // 敵の前
+            ctx.fillRect(s.x - 40, s.y - 25, 15, 25);
+            ctx.beginPath();
+            ctx.roundRect(s.x - 42, s.y - 27, 19, 10, 2);
+            ctx.fill();
+        }
+    });
+}
+
+// --- ゲームロジック ---
+
+function startWave(wave) {
+    gameState.wave = wave;
+    gameState.soldiers = [];
+    gameState.bullets = [];
+    gameState.particles = [];
+    
+    // 味方配置
+    let playerYs = [180, 280, 380];
+    playerYs.forEach(y => {
+        gameState.soldiers.push(new Soldier(150, y, 0, 100));
+    });
+    
+    // 敵配置（Waveが進むと増える）
+    let enemyCount = Math.min(3 + Math.floor((wave - 1) / 2), 5);
+    let enemyHp = 80 + wave * 20; // 敵は徐々にタフに
+    
+    let enemyYs = [];
+    let startY = 150;
+    let endY = 400;
+    if (enemyCount === 1) enemyYs = [280];
+    else {
+        let step = (endY - startY) / (enemyCount - 1);
+        for(let i=0; i<enemyCount; i++) enemyYs.push(startY + step * i);
+    }
+    
+    enemyYs.forEach(y => {
+        gameState.soldiers.push(new Soldier(650, y, 1, enemyHp));
+    });
+    
+    document.getElementById('waveDisplay').textContent = wave;
+    gameState.status = 'playing';
+}
+
+function gameLoop(timestamp) {
+    requestAnimationFrame(gameLoop);
+    
+    if (gameState.status !== 'playing' && gameState.status !== 'wave_clear') return;
+
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    drawBackground(ctx);
+
+    // 補給ポイント回復
+    if (gameState.status === 'playing') {
+        if (gameState.supply < MAX_SUPPLY) {
+            gameState.supply += 0.15; // 自動回復速度
+            if (gameState.supply > MAX_SUPPLY) gameState.supply = MAX_SUPPLY;
+        }
+        document.getElementById('supplyBar').style.width = `${(gameState.supply / MAX_SUPPLY) * 100}%`;
+        // 色の変更（ポイント不足時は少し暗く）
+        if (gameState.supply < SUPPLY_COST) {
+            document.getElementById('supplyBar').className = "h-full bg-slate-500 transition-all duration-100 w-full";
+        } else {
+            document.getElementById('supplyBar').className = "h-full bg-gradient-to-r from-emerald-500 to-emerald-300 transition-all duration-100 w-full shadow-[0_0_8px_rgba(52,211,153,0.8)]";
+        }
+    }
+
+    drawObstacles(ctx);
+
+    gameState.soldiers.forEach(s => {
+        if (gameState.status === 'playing') s.update();
+        drawSoldier(ctx, s);
+    });
+
+    for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+        let b = gameState.bullets[i];
+        if (gameState.status === 'playing') b.update();
+        b.draw(ctx);
+        if (!b.active) gameState.bullets.splice(i, 1);
+    }
+
+    for (let i = gameState.particles.length - 1; i >= 0; i--) {
+        let p = gameState.particles[i];
+        p.update();
+        p.draw(ctx);
+        if (p.life <= 0) gameState.particles.splice(i, 1);
+    }
+
+    // 勝敗判定
+    if (gameState.status === 'playing') {
+        let playerAlive = gameState.soldiers.some(s => s.team === 0 && s.hp > 0);
+        let enemyAlive = gameState.soldiers.some(s => s.team === 1 && s.hp > 0);
+        
+        if (!playerAlive) {
+            gameState.status = 'gameover';
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+            document.getElementById('finalWave').textContent = gameState.wave;
+        } else if (!enemyAlive) {
+            gameState.status = 'wave_clear';
+            // 画面中央にテキスト
+            gameState.particles.push(new TextParticle(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, "WAVE CLEARED!", "#60A5FA"));
+            
+            setTimeout(() => {
+                startWave(gameState.wave + 1);
+            }, 3000); // 3秒後に次へ
+        }
+    }
+}
+
+// --- 入力制御 (クリック/タップで補給) ---
+
+function handleInput(e) {
+    if (gameState.status !== 'playing') return;
+    
+    let clientX, clientY;
+    if (e.type === 'touchstart') {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+        e.preventDefault();
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+    
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const cx = (clientX - rect.left) * scaleX;
+    const cy = (clientY - rect.top) * scaleY;
+    
+    // 味方をクリックしたか判定 (当たり判定を少し広くする)
+    let clickedSoldier = null;
+    for (let s of gameState.soldiers) {
+        if (s.team === 0 && s.hp > 0) {
+            if (Math.hypot(s.x - cx, s.y - cy) < 50) {
+                clickedSoldier = s;
+                break;
+            }
+        }
+    }
+    
+    if (clickedSoldier) {
+        if (gameState.supply >= SUPPLY_COST) {
+            if (clickedSoldier.ammo < clickedSoldier.maxAmmo) {
+                // 補給成功
+                gameState.supply -= SUPPLY_COST;
+                clickedSoldier.ammo = clickedSoldier.maxAmmo;
+                gameState.particles.push(new TextParticle(clickedSoldier.x, clickedSoldier.y - 70, "+RELOAD", "#34D399"));
+            } else {
+                gameState.particles.push(new TextParticle(clickedSoldier.x, clickedSoldier.y - 70, "FULL", "#9CA3AF"));
+            }
+        } else {
+            gameState.particles.push(new TextParticle(clickedSoldier.x, clickedSoldier.y - 70, "NO SUPPLY", "#EF4444"));
+        }
+    }
+}
+
+canvas.addEventListener('mousedown', handleInput);
+canvas.addEventListener('touchstart', handleInput, {passive: false});
+
+// --- UI ボタン ---
+
+document.getElementById('startBtn').addEventListener('click', () => {
+    document.getElementById('startScreen').classList.add('hidden');
+    gameState.supply = MAX_SUPPLY;
+    startWave(1);
+    requestAnimationFrame(gameLoop);
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+    document.getElementById('gameOverScreen').classList.add('hidden');
+    gameState.supply = MAX_SUPPLY;
+    startWave(1);
+});
+
+</script>
+</body>
+</html>

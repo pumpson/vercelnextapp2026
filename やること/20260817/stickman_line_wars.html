@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stickman Line Wars</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a2e;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            touch-action: none; /* スマホでのスクロール防止 */
+        }
+        h1 {
+            margin: 10px 0;
+            font-size: 24px;
+            color: #e94560;
+            text-shadow: 0 0 5px #e94560;
+        }
+        .hud {
+            width: 800px;
+            max-width: 95vw;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .team-info {
+            display: flex;
+            flex-direction: column;
+            width: 40%;
+        }
+        .team-info.enemy {
+            align-items: flex-end;
+        }
+        .team-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .player-color { color: #4dabf7; }
+        .enemy-color { color: #ff6b6b; }
+        
+        .hp-bar-bg {
+            width: 100%;
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #555;
+        }
+        .hp-bar-fg {
+            height: 100%;
+            background: #32cd32;
+            width: 100%;
+            transition: width 0.2s ease;
+        }
+        .enemy .hp-bar-fg { background: #ff4500; }
+
+        canvas {
+            background-color: #2b5c33;
+            border: 3px solid #0f3460;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            width: 800px;
+            max-width: 100vw;
+            height: auto;
+            cursor: pointer;
+        }
+
+        .instructions {
+            width: 800px;
+            max-width: 95vw;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-sizing: border-box;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .guide-box {
+            flex: 1;
+            min-width: 250px;
+        }
+        .guide-box h3 { margin: 0 0 8px 0; font-size: 16px; color: #fca311; }
+        .guide-box p, .guide-box ul { margin: 0; font-size: 13px; line-height: 1.5; padding-left: 20px; }
+        .type-icon { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; }
+        
+        .relations {
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .relation-text { color: #aaa; font-size: 14px; }
+        .good { color: #ffeb3b; }
+    </style>
+</head>
+<body>
+
+    <h1>STICKMAN LINE WARS</h1>
+
+    <div class="hud">
+        <div class="team-info">
+            <div class="team-name player-color">自軍 王 (PLAYER KING)</div>
+            <div class="hp-bar-bg"><div id="p-hp" class="hp-bar-fg"></div></div>
+        </div>
+        <div style="font-weight: bold; font-size: 20px; color: #fff;">VS</div>
+        <div class="team-info enemy">
+            <div class="team-name enemy-color">敵軍 王 (ENEMY KING)</div>
+            <div class="hp-bar-bg"><div id="e-hp" class="hp-bar-fg"></div></div>
+        </div>
+    </div>
+
+    <!-- ゲーム描画用Canvas (論理サイズ 800x550) -->
+    <canvas id="gameCanvas" width="800" height="550"></canvas>
+
+    <div class="instructions">
+        <div class="guide-box">
+            <h3>🎮 操作方法</h3>
+            <ul>
+                <li><strong>自軍キャラをクリック</strong>して選択します。(足元に黄色い円が出ます)</li>
+                <li>選択中、移動させたい<strong>ライン(横道)をクリック</strong>するとレーンを移動します。</li>
+                <li>接敵すると自動で戦闘します。相性を考えて有利な敵にぶつけましょう！</li>
+            </ul>
+        </div>
+        <div class="guide-box">
+            <h3>⚔️ 兵種と相性</h3>
+            <div class="relations">
+                <span class="relation-text">歩兵(剣) <span class="good">＞</span> 槍兵 <span class="good">＞</span> 盾兵 <span class="good">＞</span> 歩兵(剣)</span><br>
+                <span class="relation-text" style="font-size: 12px; display:block; margin-top:5px;">※弓兵は近接に強いが、盾兵には極端に弱い。王は相性の影響を受けない。</span>
+            </div>
+            <ul style="margin-top: 5px; list-style-type: none; padding-left: 0;">
+                <li>👑 <strong>王 (King):</strong> 最強のステータス。倒されたら負け。</li>
+                <li>🗡️ <strong>歩兵 (Sword):</strong> 槍に強く、盾に弱い。</li>
+                <li>🔱 <strong>槍兵 (Spear):</strong> 盾に強く、歩兵に弱い。中距離攻撃。</li>
+                <li>🛡️ <strong>盾兵 (Shield):</strong> 歩兵に強く、槍に弱い。弓のダメージを大幅軽減。</li>
+                <li>🏹 <strong>弓兵 (Bow):</strong> 遠距離から一方的に攻撃できる。</li>
+            </ul>
+        </div>
+    </div>
+
+<script>
+/**
+ * Stickman Line Wars
+ * Game Engine & Logic
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- Game Constants ---
+const LANES = [75, 175, 275, 375, 475]; // 5レーン(Y座標)
+const SPEED_X = 100; // 前進速度 (px/sec) - 800pxを8秒
+const SPEED_Y = 50;  // レーン移動速度 (px/sec)
+
+// 兵種データ
+const TYPES = {
+    KING:   { name: '王',   hp: 1200, atk: 40, range: 50,  cooldown: 1.0, speed: 20 },
+    SWORD:  { name: '歩兵', hp: 300,  atk: 30, range: 40,  cooldown: 0.8, speed: 100 },
+    SPEAR:  { name: '槍兵', hp: 250,  atk: 20, range: 90,  cooldown: 1.0, speed: 100 },
+    SHIELD: { name: '盾兵', hp: 600,  atk: 15, range: 40,  cooldown: 1.2, speed: 80 },
+    BOW:    { name: '弓兵', hp: 150,  atk: 35, range: 350, cooldown: 1.5, speed: 90 },
+};
+
+// --- Game State ---
+let units = [];
+let particles = [];
+let effects = []; // 矢などのエフェクト
+let selectedUnit = null;
+let gameState = 'PLAYING'; // 'PLAYING', 'PLAYER_WIN', 'ENEMY_WIN'
+let lastTime = 0;
+let gameTime = 0;
+
+// --- Helper Functions ---
+// 相性倍率計算
+function getDamageMultiplier(atkType, defType) {
+    if (atkType === 'KING' || defType === 'KING') return 1.0;
+
+    // 3すくみ
+    if (atkType === 'SWORD' && defType === 'SPEAR') return 2.0;
+    if (atkType === 'SPEAR' && defType === 'SHIELD') return 2.0;
+    if (atkType === 'SHIELD' && defType === 'SWORD') return 2.0;
+    
+    // 弓兵の特別処理
+    if (atkType === 'BOW') {
+        if (defType === 'SHIELD') return 0.2; // 盾にはほとんど効かない
+        return 1.5; // 他の近接には強い
+    }
+    
+    // 不利側からの攻撃は半減 (膠着を誘発)
+    if (atkType === 'SPEAR' && defType === 'SWORD') return 0.5;
+    if (atkType === 'SHIELD' && defType === 'SPEAR') return 0.5;
+    if (atkType === 'SWORD' && defType === 'SHIELD') return 0.5;
+
+    return 1.0;
+}
+
+// --- Classes ---
+class Particle {
+    constructor(x, y, text, color) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.life = 1.0;
+        this.maxLife = 1.0;
+    }
+    update(dt) {
+        this.y -= 30 * dt;
+        this.life -= dt;
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        // 縁取りして見やすく
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.strokeText(this.text, this.x, this.y);
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+class ArrowEffect {
+    constructor(sx, sy, tx, ty) {
+        this.sx = sx; this.sy = sy;
+        this.tx = tx; this.ty = ty;
+        this.life = 0.15;
+    }
+    update(dt) { this.life -= dt; }
+    draw(ctx) {
+        ctx.save();
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.sx, this.sy);
+        ctx.lineTo(this.tx, this.ty);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+class Unit {
+    constructor(isPlayer, type, laneIdx, startX) {
+        this.id = Math.random().toString(36).substr(2, 9);
+        this.isPlayer = isPlayer;
+        this.type = type;
+        
+        let stats = TYPES[type];
+        this.maxHp = stats.hp;
+        this.hp = stats.hp;
+        this.atk = stats.atk;
+        this.range = stats.range;
+        this.maxCooldown = stats.cooldown;
+        this.baseSpeed = stats.speed;
+        
+        this.laneIdx = laneIdx;
+        this.targetLaneIdx = laneIdx;
+        this.x = startX;
+        this.y = LANES[laneIdx];
+        
+        this.action = 'MOVE'; // 'MOVE', 'ATTACK', 'WAIT'
+        this.cooldownTimer = 0;
+        this.isDead = false;
+        this.respawnTimer = 0;
+        
+        this.aiTimer = Math.random() * 2.0; // AIの思考サイクルズラし
+    }
+
+    update(dt, units) {
+        if (this.isDead) {
+            this.respawnTimer -= dt;
+            if (this.respawnTimer <= 0 && this.type !== 'KING') {
+                this.respawn();
+            }
+            return;
+        }
+
+        // --- AI (敵兵 または プレイヤー指示なしの補助) ---
+        if (!this.isPlayer && this.type !== 'KING') {
+            this.aiTimer -= dt;
+            if (this.aiTimer <= 0) {
+                this.aiTimer = 2.0; // 2秒ごとに再評価
+                let enemies = units.filter(u => u.isPlayer !== this.isPlayer && !u.isDead);
+                
+                // 前方に敵がいるかチェック
+                let enemyInFront = enemies.some(e => 
+                    e.targetLaneIdx === this.targetLaneIdx && e.x < this.x + 20
+                );
+                
+                // いなければ、一番近い敵のレーンへ移動
+                if (!enemyInFront) {
+                    let closestE = null;
+                    let minDist = Infinity;
+                    for(let e of enemies) {
+                        let d = Math.abs(e.x - this.x);
+                        if (d < minDist) {
+                            minDist = d;
+                            closestE = e;
+                        }
+                    }
+                    if (closestE) {
+                        this.targetLaneIdx = closestE.targetLaneIdx;
+                    }
+                }
+            }
+        }
+
+        let friends = units.filter(u => u.isPlayer === this.isPlayer && !u.isDead && u !== this);
+        let enemies = units.filter(u => u.isPlayer !== this.isPlayer && !u.isDead);
+        
+        // --- Target Selection ---
+        let target = null;
+        let minDist = Infinity;
+        for (let e of enemies) {
+            // 前方にいるか（すれ違い防止。少し後ろまでは許容）
+            let xDiff = this.isPlayer ? (e.x - this.x) : (this.x - e.x);
+            if (xDiff < -30) continue; 
+
+            // 距離判定 (XとYのユークリッド距離)
+            let dist = Math.hypot(e.x - this.x, e.y - this.y);
+            if (dist < minDist && dist <= this.range) {
+                minDist = dist;
+                target = e;
+            }
+        }
+
+        // --- Blocked by Friends Check ---
+        let blocked = false;
+        if (this.type !== 'KING') { // 王は味方を押しのけて進む
+            for (let f of friends) {
+                if (f.targetLaneIdx !== this.targetLaneIdx) continue;
+                let xDiff = this.isPlayer ? (f.x - this.x) : (this.x - f.x);
+                // 自分より前方にいて、距離が近い
+                if (xDiff > 0 && xDiff < 45) {
+                    blocked = true;
+                    break;
+                }
+            }
+        }
+
+        // --- Action Decision & Execution ---
+        if (target) {
+            this.action = 'ATTACK';
+            this.cooldownTimer -= dt;
+            if (this.cooldownTimer <= 0) {
+                this.attack(target);
+                this.cooldownTimer = this.maxCooldown;
+            }
+        } else {
+            this.action = blocked ? 'WAIT' : 'MOVE';
+            // 非攻撃時はクールダウンを少し回復
+            if (this.cooldownTimer > 0) this.cooldownTimer -= dt * 0.5;
+        }
+
+        // --- Movement ---
+        let movedY = false;
+        let targetY = LANES[this.targetLaneIdx];
+        if (this.y !== targetY) {
+            let yDiff = targetY - this.y;
+            let stepY = SPEED_Y * dt;
+            if (Math.abs(yDiff) <= stepY) {
+                this.y = targetY;
+                this.laneIdx = this.targetLaneIdx;
+            } else {
+                this.y += Math.sign(yDiff) * stepY;
+            }
+            movedY = true;
+        }
+
+        if (this.action === 'MOVE') {
+            // 前進
+            let limitX = this.isPlayer ? 780 : 20;
+            let canMoveForward = this.isPlayer ? (this.x < limitX) : (this.x > limitX);
+            
+            if (canMoveForward) {
+                // Y軸移動中はX軸の前進速度を落とす
+                let currentSpeed = movedY ? (this.baseSpeed * 0.4) : this.baseSpeed;
+                // SPEED_X は基準(100px/s)。兵種ごとの比率をかける
+                let realSpeed = (currentSpeed / 100) * SPEED_X;
+                this.x += (this.isPlayer ? 1 : -1) * realSpeed * dt;
+            }
+        }
+    }
+
+    attack(target) {
+        let mult = getDamageMultiplier(this.type, target.type);
+        let dmg = Math.floor(this.atk * mult);
+        
+        let color = '#fff'; // 通常白
+        if (mult > 1.0) color = '#ffeb3b'; // 有利黄色
+        else if (mult < 1.0) color = '#aaa'; // 不利グレー
+        
+        // ばらつきを持たせる
+        dmg = Math.max(1, dmg + Math.floor(Math.random()*5 - 2));
+
+        target.hp -= dmg;
+        particles.push(new Particle(target.x, target.y - 50, `-${dmg}`, color));
+
+        if (this.type === 'BOW') {
+            effects.push(new ArrowEffect(this.x, this.y - 20, target.x, target.y - 20));
+        }
+
+        if (target.hp <= 0) {
+            target.die();
+        }
+    }
+
+    die() {
+        this.isDead = true;
+        this.hp = 0;
+        this.respawnTimer = 6.0; // 6秒で復活
+        this.action = 'WAIT';
+    }
+
+    respawn() {
+        this.isDead = false;
+        this.hp = this.maxHp;
+        
+        let king = units.find(u => u.isPlayer === this.isPlayer && u.type === 'KING');
+        if (king) {
+            // 王の後ろに復活
+            this.x = king.x + (this.isPlayer ? -40 : 40);
+            this.targetLaneIdx = king.targetLaneIdx;
+        } else {
+            this.x = this.isPlayer ? 20 : 780;
+            this.targetLaneIdx = 2; // 中央
+        }
+        
+        // 画面外に出ないようにクランプ
+        this.x = Math.max(20, Math.min(780, this.x));
+        this.laneIdx = this.targetLaneIdx;
+        this.y = LANES[this.laneIdx];
+        this.cooldownTimer = 0;
+    }
+
+    draw(ctx, time) {
+        if (this.isDead) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // 敵は左向き
+        if (!this.isPlayer) {
+            ctx.scale(-1, 1);
+        }
+
+        const isMoving = (this.action === 'MOVE') || (this.y !== LANES[this.targetLaneIdx]);
+        const isAttacking = (this.action === 'ATTACK');
+        
+        // アニメーション周期
+        const walkPhase = isMoving ? (time * 10) % (Math.PI * 2) : 0;
+        const atkPhase = isAttacking ? Math.max(0, 1 - (this.cooldownTimer / this.maxCooldown)) : 0;
+
+        // 影
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 15, 6, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        // 選択表示
+        if (selectedUnit === this) {
+            ctx.strokeStyle = 'rgba(255, 235, 59, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 22, 10, 0, 0, Math.PI*2);
+            ctx.stroke();
+        }
+
+        // キャラ色
+        ctx.strokeStyle = this.type === 'KING' ? '#ffaa00' : (this.isPlayer ? '#4dabf7' : '#ff6b6b');
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // 頭
+        ctx.beginPath();
+        ctx.arc(0, -35, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#111';
+        ctx.fill();
+        ctx.stroke();
+
+        // 王冠
+        if (this.type === 'KING') {
+            ctx.fillStyle = 'gold';
+            ctx.beginPath();
+            ctx.moveTo(-6, -43);
+            ctx.lineTo(-10, -53);
+            ctx.lineTo(-3, -48);
+            ctx.lineTo(0, -55);
+            ctx.lineTo(3, -48);
+            ctx.lineTo(10, -53);
+            ctx.lineTo(6, -43);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // 胴体
+        ctx.beginPath();
+        ctx.moveTo(0, -27);
+        ctx.lineTo(0, -12);
+        ctx.stroke();
+
+        // 足
+        let legAng1 = Math.sin(walkPhase) * 0.6;
+        let legAng2 = Math.sin(walkPhase + Math.PI) * 0.6;
+        if (!isMoving) { legAng1 = 0.1; legAng2 = -0.1; }
+        
+        // 右足(奥)
+        ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(Math.sin(legAng2)*15, -12 + Math.cos(legAng2)*15); ctx.stroke();
+        // 左足(手前)
+        ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(Math.sin(legAng1)*15, -12 + Math.cos(legAng1)*15); ctx.stroke();
+
+        // 腕と武器
+        let armAngR = isMoving ? Math.sin(walkPhase + Math.PI)*0.5 : 0;
+        let armAngL = isMoving ? Math.sin(walkPhase)*0.5 : 0;
+
+        if (isAttacking) {
+            // 攻撃時は右腕を大きく振る
+            if (this.type === 'BOW') {
+                armAngR = -Math.PI/2; // 弓を構える
+                armAngL = -Math.PI/2 + (atkPhase < 0.2 ? 0.3 : 0); // 矢を引く
+            } else {
+                armAngR = -Math.PI/4 + Math.sin(atkPhase * Math.PI)*1.0; 
+            }
+        }
+
+        // 左腕(奥)
+        ctx.beginPath(); ctx.moveTo(0, -23); ctx.lineTo(Math.sin(armAngL)*12, -23 + Math.cos(armAngL)*12); ctx.stroke();
+        
+        // 武器(右手)
+        let wx = Math.sin(armAngR)*15;
+        let wy = -23 + Math.cos(armAngR)*15;
+        
+        // 右腕(手前)
+        ctx.beginPath(); ctx.moveTo(0, -23); ctx.lineTo(wx, wy); ctx.stroke();
+
+        // 武器描画
+        ctx.lineWidth = 2;
+        if (this.type === 'SWORD' || this.type === 'KING') {
+            ctx.strokeStyle = this.type === 'KING' ? 'gold' : '#ddd';
+            ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 18, wy - 18); ctx.stroke();
+        } 
+        else if (this.type === 'SPEAR') {
+            ctx.strokeStyle = '#ddd';
+            ctx.beginPath(); ctx.moveTo(wx - 10, wy + 5); ctx.lineTo(wx + 40, wy - 15); ctx.stroke();
+        } 
+        else if (this.type === 'SHIELD') {
+            // 剣
+            ctx.strokeStyle = '#ddd';
+            ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 10, wy - 10); ctx.stroke();
+            // 左手に盾
+            let lx = Math.sin(armAngL)*12;
+            let ly = -23 + Math.cos(armAngL)*12;
+            ctx.fillStyle = '#666';
+            ctx.strokeStyle = '#444';
+            ctx.beginPath(); ctx.arc(lx + 5, ly, 10, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        }
+        else if (this.type === 'BOW') {
+            ctx.strokeStyle = '#a64'; // 木の色
+            ctx.beginPath(); ctx.arc(wx, wy, 15, -Math.PI/3, Math.PI/3); ctx.stroke();
+            // 矢
+            if (isAttacking && atkPhase < 0.8) {
+                ctx.strokeStyle = '#ddd';
+                ctx.beginPath(); ctx.moveTo(wx - 10, wy); ctx.lineTo(wx + 15, wy); ctx.stroke();
+            }
+        }
+
+        ctx.restore();
+
+        // HPバー
+        let hpPct = Math.max(0, this.hp / this.maxHp);
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(this.x - 15, this.y + 8, 30, 4);
+        ctx.fillStyle = this.isPlayer ? '#32cd32' : '#ff4500';
+        ctx.fillRect(this.x - 15, this.y + 8, 30 * hpPct, 4);
+    }
+}
+
+// --- Init & Loop ---
+function init() {
+    units = [];
+    particles = [];
+    effects = [];
+    selectedUnit = null;
+    
+    // Player
+    units.push(new Unit(true, 'KING',   2, 40));
+    units.push(new Unit(true, 'SHIELD', 2, 160));
+    units.push(new Unit(true, 'SWORD',  1, 100));
+    units.push(new Unit(true, 'SPEAR',  3, 100));
+    units.push(new Unit(true, 'BOW',    4, 60));
+    
+    // Enemy
+    units.push(new Unit(false, 'KING',   2, 760));
+    units.push(new Unit(false, 'SHIELD', 2, 640));
+    units.push(new Unit(false, 'SWORD',  3, 700));
+    units.push(new Unit(false, 'SPEAR',  1, 700));
+    units.push(new Unit(false, 'BOW',    0, 740));
+    
+    gameState = 'PLAYING';
+    gameTime = 0;
+    
+    // Update HUD initially
+    updateHUD();
+}
+
+function updateHUD() {
+    let pKing = units.find(u => u.isPlayer && u.type === 'KING');
+    let eKing = units.find(u => !u.isPlayer && u.type === 'KING');
+    if (pKing) document.getElementById('p-hp').style.width = `${Math.max(0, (pKing.hp/pKing.maxHp)*100)}%`;
+    if (eKing) document.getElementById('e-hp').style.width = `${Math.max(0, (eKing.hp/eKing.maxHp)*100)}%`;
+}
+
+function loop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    let dt = (timestamp - lastTime) / 1000;
+    // cap dt for lag spikes
+    if (dt > 0.1) dt = 0.1; 
+    lastTime = timestamp;
+    gameTime += dt;
+
+    if (gameState === 'PLAYING') {
+        updateGame(dt);
+    }
+    drawGame();
+
+    requestAnimationFrame(loop);
+}
+
+function updateGame(dt) {
+    // Update Units
+    for (let u of units) {
+        u.update(dt, units);
+    }
+
+    // Update Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update(dt);
+        if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+    
+    // Update Effects
+    for (let i = effects.length - 1; i >= 0; i--) {
+        effects[i].update(dt);
+        if (effects[i].life <= 0) effects.splice(i, 1);
+    }
+
+    updateHUD();
+
+    // Check Win/Loss
+    let pKing = units.find(u => u.isPlayer && u.type === 'KING');
+    let eKing = units.find(u => !u.isPlayer && u.type === 'KING');
+    
+    if (pKing.hp <= 0) {
+        gameState = 'ENEMY_WIN';
+    } else if (eKing.hp <= 0) {
+        gameState = 'PLAYER_WIN';
+    }
+}
+
+function drawGame() {
+    // Background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw Lanes
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
+    for (let l of LANES) {
+        ctx.beginPath();
+        ctx.moveTo(0, l);
+        ctx.lineTo(canvas.width, l);
+        ctx.stroke();
+    }
+    
+    // Draw Base areas
+    ctx.fillStyle = 'rgba(77, 171, 247, 0.1)';
+    ctx.fillRect(0, 0, 80, canvas.height);
+    ctx.fillStyle = 'rgba(255, 107, 107, 0.1)';
+    ctx.fillRect(canvas.width - 80, 0, 80, canvas.height);
+
+    // Sort units by Y for depth rendering (Z-index)
+    let sortedUnits = [...units].sort((a, b) => a.y - b.y);
+
+    // Draw Units
+    for (let u of sortedUnits) {
+        u.draw(ctx, gameTime);
+    }
+
+    // Draw Effects
+    for (let e of effects) e.draw(ctx);
+    
+    // Draw Particles
+    for (let p of particles) p.draw(ctx);
+
+    // Draw End Screen
+    if (gameState !== 'PLAYING') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.font = 'bold 64px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (gameState === 'PLAYER_WIN') {
+            ctx.fillStyle = '#ffd700';
+            ctx.fillText('VICTORY!', canvas.width/2, canvas.height/2 - 20);
+        } else {
+            ctx.fillStyle = '#ff4444';
+            ctx.fillText('DEFEAT...', canvas.width/2, canvas.height/2 - 20);
+        }
+        
+        ctx.font = '24px sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('画面をクリックしてリスタート', canvas.width/2, canvas.height/2 + 50);
+    }
+}
+
+// --- Input Handling ---
+canvas.addEventListener('pointerdown', (e) => {
+    // 座標の正規化 (CSS縮小表示対応)
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+
+    if (gameState !== 'PLAYING') {
+        init();
+        return;
+    }
+
+    // 1. ユニット選択チェック (自軍の生きているユニットのみ)
+    let clickedUnit = null;
+    let minU_Dist = 40; // ヒットボックス半径
+    
+    for (let u of units) {
+        if (!u.isPlayer || u.isDead) continue;
+        let d = Math.hypot(u.x - px, u.y - py);
+        if (d < minU_Dist) {
+            minU_Dist = d;
+            clickedUnit = u;
+        }
+    }
+
+    if (clickedUnit) {
+        // ユニットを選択
+        selectedUnit = clickedUnit;
+    } else if (selectedUnit) {
+        // 2. 移動指示 (クリックされたY座標に一番近いレーンを探す)
+        let closestLaneIdx = 0;
+        let minL_Dist = Infinity;
+        for (let i = 0; i < LANES.length; i++) {
+            let d = Math.abs(LANES[i] - py);
+            if (d < minL_Dist) {
+                minL_Dist = d;
+                closestLaneIdx = i;
+            }
+        }
+        
+        selectedUnit.targetLaneIdx = closestLaneIdx;
+        
+        // 移動先を分かりやすくするエフェクト
+        particles.push(new Particle(px, LANES[closestLaneIdx], "📍", "white"));
+        
+        // 連続指示を可能にするため選択は維持する
+        // 選択解除したい場合は自陣の空き地をクリックするなどの工夫が必要だが、
+        // 今回は常にどこかのレーンへ移動指示を出す仕様とする。
+    }
+});
+
+// Start Game
+init();
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
