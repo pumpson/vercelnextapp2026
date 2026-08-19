@@ -16,8 +16,8 @@ const generateName = () => {
 
 // 役職の定義
 const JOBS = [
-    { id: 'SWORDSMAN', name: '剣士', hpMod: 1.2, atkMod: 1.2, defMod: 1.0, spdMod: 1.2, range: 30, color: '#4facfe', growth: { hp: 10, atk: 3, def: 1, spd: 1 } },
-    { id: 'HEAVY_ARMOR', name: '重装備兵', hpMod: 1.8, atkMod: 0.8, defMod: 1.8, spdMod: 0.6, range: 35, color: '#43e97b', growth: { hp: 20, atk: 1, def: 3, spd: 0.5 } },
+    { id: 'SWORDSMAN', name: '剣士', hpMod: 1.3, atkMod: 1.5, defMod: 1.1, spdMod: 1.3, range: 30, color: '#4facfe', growth: { hp: 12, atk: 5, def: 2, spd: 1 } },
+    { id: 'HEAVY_ARMOR', name: '重装備兵', hpMod: 2.0, atkMod: 1.0, defMod: 2.0, spdMod: 0.6, range: 35, color: '#43e97b', growth: { hp: 25, atk: 3, def: 4, spd: 0.5 } },
     { id: 'MAGE', name: '魔導士', hpMod: 0.7, atkMod: 1.8, defMod: 0.5, spdMod: 0.9, range: 120, color: '#b224ef', growth: { hp: 5, atk: 5, def: 0.5, spd: 1 } },
     { id: 'ARCHER', name: '弓使い', hpMod: 0.8, atkMod: 1.1, defMod: 0.7, spdMod: 1.5, range: 150, color: '#00f2fe', growth: { hp: 6, atk: 2, def: 1, spd: 2 } },
     { id: 'CLERIC', name: '僧侶', hpMod: 0.9, atkMod: 0.5, defMod: 0.9, spdMod: 1.0, range: 100, color: '#fddb92', growth: { hp: 8, atk: 1, def: 1, spd: 1 } } // 回復役
@@ -42,19 +42,31 @@ const SKILLS = [
     { id: 'LUCKY', name: '幸運', desc: '敵の攻撃を25%の確率で完全に回避する' }
 ];
 
-const generateCharacter = (isPlayer: boolean, stage: number) => {
-    // 敵のステータスはステージに応じて強化。味方は初期ステータス。
-    const multiplier = isPlayer ? 1 : 1 + (stage * 0.3);
-    const job = JOBS[Math.floor(Math.random() * JOBS.length)];
+const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: number = 1) => {
+    // レベルの決定
+    let level = 1;
+    if (isPlayer) {
+        if (stage === 1) {
+            level = 1;
+        } else {
+            // 新規加入兵は平均レベル±2（最低1）
+            level = Math.max(1, averageLevel + Math.floor(Math.random() * 5) - 2);
+        }
+    } else {
+        // 敵のレベルは味方平均レベル + ステージに応じた緩やかなボーナス
+        level = Math.max(1, averageLevel + Math.floor(stage / 3) + Math.floor(Math.random() * 3) - 1);
+    }
 
-    // 敵にはスキルを付与しない（要件5の配慮）、味方は確定で1つスキルを持つ
+    const job = JOBS[Math.floor(Math.random() * JOBS.length)];
     const skill = isPlayer ? SKILLS[Math.floor(Math.random() * SKILLS.length)] : null;
 
-    // 基礎ステータス
-    const baseHp = Math.floor((100 + Math.random() * 50) * multiplier * job.hpMod);
-    const baseAtk = Math.floor((15 + Math.random() * 10) * multiplier * job.atkMod);
-    const baseDef = Math.floor((5 + Math.random() * 5) * multiplier * job.defMod);
-    const baseSpd = Math.floor((30 + Math.random() * 20) * job.spdMod); // 速度はステージ倍率をかけない
+    // ステータス算出: (基礎値 + 成長率 * レベル) * 役職補正 + 個体値(-10%~+10%)
+    const applyVariance = (val: number) => Math.floor(val * (0.9 + Math.random() * 0.2));
+
+    const baseHp = applyVariance((100 + job.growth.hp * (level - 1)) * job.hpMod);
+    const baseAtk = applyVariance((15 + job.growth.atk * (level - 1)) * job.atkMod);
+    const baseDef = applyVariance((5 + job.growth.def * (level - 1)) * job.defMod);
+    const baseSpd = applyVariance((30 + job.growth.spd * (level - 1)) * job.spdMod);
 
     return {
         id: Math.random().toString(36).substring(2, 9),
@@ -62,6 +74,7 @@ const generateCharacter = (isPlayer: boolean, stage: number) => {
         isPlayer,
         job,
         skill,
+        level,
         maxHp: baseHp,
         hp: baseHp,
         atk: baseAtk,
@@ -75,8 +88,19 @@ const generateCharacter = (isPlayer: boolean, stage: number) => {
         cooldown: 0,
         isDead: false,
         gutsUsed: false,
-        battleAtkMod: 1.0 // 戦闘中のバフ用
+        battleAtkMod: 1.0, // 戦闘中のバフ用
+        survivedStages: 0 // 生存したステージ数
     };
+};
+
+// 称号（ランク）の取得ロジック
+const getRankDisplay = (survivedStages: number) => {
+    if (survivedStages === 0) return { title: '新兵', icon: '' };
+    if (survivedStages <= 2) return { title: '熟練兵', icon: '🥉' };
+    if (survivedStages <= 5) return { title: '精鋭', icon: '🥈' };
+    if (survivedStages <= 9) return { title: '歴戦', icon: '🥇' };
+    if (survivedStages <= 19) return { title: '英雄', icon: '🎖️' };
+    return { title: '伝説', icon: '👑' };
 };
 
 export default function RpgSquadBattler() {
@@ -134,11 +158,17 @@ export default function RpgSquadBattler() {
         const s = battleStateRef.current;
         s.stage = stage;
 
+        // 味方の平均レベルを算出
+        const alivePlayers = s.players.filter(p => !p.isDead);
+        const averageLevel = alivePlayers.length > 0
+            ? Math.floor(alivePlayers.reduce((sum, p) => sum + p.level, 0) / alivePlayers.length)
+            : 1;
+
         // 敵の生成（ステージに応じて数と強さが変動。基本10～30人）
         const enemyCount = Math.floor(10 + Math.random() * 21) + Math.floor(stage / 2); // eslint-disable-line react-hooks/purity
         const newEnemies = [];
         for (let i = 0; i < enemyCount; i++) {
-            newEnemies.push(generateCharacter(false, stage));
+            newEnemies.push(generateCharacter(false, stage, averageLevel));
         }
         setEnemies(newEnemies);
         s.enemies = newEnemies;
@@ -229,7 +259,18 @@ export default function RpgSquadBattler() {
 
             const dist = Math.hypot(target.x - unit.x, target.y - unit.y);
             const actualSpd = unit.skill?.id === 'SPEED_STAR' ? unit.spd * 1.5 : unit.spd;
-            const attackInterval = unit.skill?.id === 'SPEED_STAR' ? 0.7 : 1.0;
+
+            // 遠距離クラスは攻撃間隔を長くする（DPSを下げる）
+            let baseInterval = 1.0;
+            if (unit.job.id === 'ARCHER' || unit.job.id === 'MAGE') {
+                baseInterval = 2.0;
+            } else if (unit.job.id === 'CLERIC') {
+                baseInterval = 1.5;
+            } else {
+                baseInterval = 0.8; // 近接は攻撃間隔を短くする（DPSを上げる）
+            }
+
+            const attackInterval = unit.skill?.id === 'SPEED_STAR' ? baseInterval * 0.7 : baseInterval;
 
             if (dist > unit.job.range) {
                 // 移動
@@ -563,13 +604,18 @@ export default function RpgSquadBattler() {
         // 生存者のステータスアップと回復
         s.players.forEach(p => {
             if (!p.isDead) {
+                p.survivedStages += 1;
+                p.level += 1; // 生存でレベルアップ
                 let growthMult = 1.0;
                 if (p.skill?.id === 'GROWTH_UP') growthMult = 2.0;
 
-                p.maxHp += Math.floor(p.job.growth.hp * growthMult);
-                p.atk += Math.floor(p.job.growth.atk * growthMult);
-                p.def += Math.floor(p.job.growth.def * growthMult);
-                p.spd += Math.floor(p.job.growth.spd * growthMult);
+                // 個体値ブレ（-10%〜+10%）を成長量にも適用
+                const applyVariance = (val: number) => Math.max(1, Math.floor(val * (0.9 + Math.random() * 0.2)));
+
+                p.maxHp += applyVariance(p.job.growth.hp * growthMult * p.job.hpMod);
+                p.atk += applyVariance(p.job.growth.atk * growthMult * p.job.atkMod);
+                p.def += applyVariance(p.job.growth.def * growthMult * p.job.defMod);
+                p.spd += applyVariance(p.job.growth.spd * growthMult * p.job.spdMod);
 
                 if (p.skill?.id === 'FULL_HEAL') {
                     p.hp = p.maxHp;
@@ -582,11 +628,16 @@ export default function RpgSquadBattler() {
         // 死亡者の除外
         s.players = s.players.filter(p => !p.isDead);
 
+        // 味方の平均レベルを算出（新規加入用）
+        const averageLevel = s.players.length > 0
+            ? Math.floor(s.players.reduce((sum, p) => sum + p.level, 0) / s.players.length)
+            : 1;
+
         // 新規加入 (毎ステージ 3〜5人ランダム補充、ただし上限30人)
         const recruitsCount = Math.floor(3 + Math.random() * 3);
         for(let i=0; i<recruitsCount; i++) {
              if (s.players.length < 30) {
-                 s.players.push(generateCharacter(true, stage));
+                 s.players.push(generateCharacter(true, stage, averageLevel));
              }
         }
 
@@ -690,13 +741,21 @@ export default function RpgSquadBattler() {
                             <span className="text-sm text-gray-500">生存 {players.filter(p=>!p.isDead).length}名</span>
                         </h3>
                         <div className="overflow-y-auto flex-grow space-y-2 pr-1 custom-scrollbar">
-                            {players.map((p) => (
+                            {players.map((p) => {
+                                const rankInfo = getRankDisplay(p.survivedStages || 0);
+                                return (
                                 <div key={p.id} className={`p-2 rounded bg-gray-900 border ${p.isDead ? 'border-red-900/50 opacity-50' : 'border-gray-700'} flex flex-col gap-1`}>
                                     <div className="flex justify-between items-center">
                                         <div className="font-bold text-sm flex items-center gap-1">
-                                            <span style={{color: p.job.color}}>●</span> {p.name}
+                                            <span style={{color: p.job.color}}>●</span>
+                                            {p.name}
+                                            {rankInfo.icon && <span className="text-xs" title={rankInfo.title}>{rankInfo.icon}</span>}
                                         </div>
-                                        <div className="text-xs text-gray-400">{p.job.name}</div>
+                                        <div className="text-xs text-gray-400 flex items-center gap-1">
+                                            <span className="font-mono text-[10px]">Lv.{p.level}</span>
+                                            {rankInfo.title !== '新兵' && <span className="text-[10px] text-yellow-500 border border-yellow-700/50 bg-yellow-900/20 px-1 rounded">{rankInfo.title}</span>}
+                                            {p.job.name}
+                                        </div>
                                     </div>
 
                                     {!p.isDead ? (
@@ -721,7 +780,8 @@ export default function RpgSquadBattler() {
                                         <div className="text-xs text-red-500 font-bold text-center mt-1">戦死 (Kills: {p.kills})</div>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
