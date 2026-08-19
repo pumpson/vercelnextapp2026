@@ -76,6 +76,12 @@ export default function GamesIndexPage() {
           <p className="text-gray-400 flex-grow">東京の地下鉄やJRを舞台にした鉄道すごろくゲーム。目的地を目指して資産を増やそう。</p>
         </Link>
 
+        <Link href="/games/rpg-squad-battler" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-yellow-400 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">🛡️</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-yellow-300 transition-colors">RPG Squad Battler</h2>
+          <p className="text-gray-400 flex-grow">個性豊かな役職とスキルを持つキャラ達が織りなすエンドレス総力戦RPG。部隊を率いて生き残れ。</p>
+        </Link>
+
         <Link href="/games/auto-battler" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-orange-500 transition-all hover:scale-105 shadow-xl flex flex-col">
           <div className="text-4xl mb-4">⚔️</div>
           <h2 className="text-2xl font-bold mb-2 group-hover:text-orange-400 transition-colors">Auto Battler</h2>
