@@ -89,7 +89,8 @@ const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: numbe
         isDead: false,
         gutsUsed: false,
         battleAtkMod: 1.0, // 戦闘中のバフ用
-        survivedStages: 0 // 生存したステージ数
+        survivedStages: 0, // 生存したステージ数
+        exp: 0 // 現在の経験値
     };
 };
 
@@ -110,7 +111,7 @@ export default function RpgSquadBattler() {
 
     // ReactのStateとしては概要だけ保持。詳細な位置座標などはRefで管理する。
     const [players, setPlayers] = useState<any[]>([]);
-    const [, setEnemies] = useState<any[]>([]);
+    const [enemies, setEnemies] = useState<any[]>([]);
     const [logs, setLogs] = useState<string[]>([]);
     const [aliveEnemyCount, setAliveEnemyCount] = useState<number>(0);
 
@@ -122,7 +123,8 @@ export default function RpgSquadBattler() {
         floatingTexts: [] as any[],
         phase: 'setup',
         stage: 1,
-        lastTime: 0
+        lastTime: 0,
+        lastUiUpdateTime: 0
     });
 
     const reqIdRef = useRef<number>();
@@ -151,6 +153,11 @@ export default function RpgSquadBattler() {
             battleStateRef.current.players = JSON.parse(JSON.stringify(initialPlayers));
         }
 
+        return () => {
+            if (reqIdRef.current) {
+                cancelAnimationFrame(reqIdRef.current);
+            }
+        };
     }, []);
 
     // --- 戦闘開始 ---
@@ -287,6 +294,9 @@ export default function RpgSquadBattler() {
                         target.hp = Math.min(target.maxHp, target.hp + healAmt);
                         s.floatingTexts.push({ x: target.x, y: target.y - 20, text: `+${healAmt}`, color: '#10b981', life: 1 });
                         spawnParticles(s.particles, target.x, target.y, '#10b981', 5);
+
+                        // 回復経験値
+                        giveExp(unit, 5 + (healAmt / target.maxHp) * 20, s);
                     } else {
                         // 攻撃行動
                         executeAttack(unit, target, s);
@@ -346,6 +356,13 @@ export default function RpgSquadBattler() {
 
         // 描画
         drawBattle(s);
+
+        // UIの定期更新（0.5秒ごと）
+        if (now - s.lastUiUpdateTime > 500) {
+            s.lastUiUpdateTime = now;
+            setPlayers([...s.players]);
+            setEnemies([...s.enemies]);
+        }
 
         // 勝敗判定
         const aliveP = s.players.filter(p => !p.isDead).length;
@@ -419,9 +436,39 @@ export default function RpgSquadBattler() {
         }
     };
 
+    const giveExp = (unit: any, expGain: number, s: any) => {
+        if (unit.isDead) return;
+        unit.exp += Math.floor(expGain);
+        const nextLevelExp = unit.level * 100;
+        if (unit.exp >= nextLevelExp) {
+            unit.exp -= nextLevelExp;
+            unit.level += 1;
+
+            // レベルアップ時のステータス上昇
+            const applyVariance = (val: number) => Math.max(1, Math.floor(val * (0.9 + Math.random() * 0.2)));
+            let growthMult = 1.0;
+            if (unit.skill?.id === 'GROWTH_UP') growthMult = 2.0;
+
+            const hpUp = applyVariance(unit.job.growth.hp * growthMult * unit.job.hpMod);
+            unit.maxHp += hpUp;
+            unit.hp = Math.min(unit.maxHp, unit.hp + Math.floor(unit.maxHp * 0.2)); // 20%回復
+            unit.atk += applyVariance(unit.job.growth.atk * growthMult * unit.job.atkMod);
+            unit.def += applyVariance(unit.job.growth.def * growthMult * unit.job.defMod);
+            unit.spd += applyVariance(unit.job.growth.spd * growthMult * unit.job.spdMod);
+
+            s.floatingTexts.push({ x: unit.x, y: unit.y - 40, text: "LEVEL UP!", color: '#fbbf24', life: 1.5 });
+            spawnParticles(s.particles, unit.x, unit.y, '#fbbf24', 10);
+
+            // 再帰的にチェック（一気に2レベル以上上がる場合）
+            if (unit.exp >= unit.level * 100) {
+                giveExp(unit, 0, s);
+            }
+        }
+    };
+
     const applyDamage = (attacker: any, target: any, rawDmg: number, s: any) => {
         // スキル：幸運（回避）
-        if (target.skill?.id === 'LUCKY' && Math.random() < 0.25) {
+        if (target.skill?.id === 'LUCKY' && Math.random() < 0.25) { // eslint-disable-line react-hooks/purity
             s.floatingTexts.push({ x: target.x, y: target.y - 20, text: "MISS!", color: '#9ca3af', life: 1 });
             return;
         }
@@ -430,7 +477,7 @@ export default function RpgSquadBattler() {
 
         // スキル：会心
         let isCrit = false;
-        if (attacker.skill?.id === 'CRITICAL' && Math.random() < 0.15) {
+        if (attacker.skill?.id === 'CRITICAL' && Math.random() < 0.15) { // eslint-disable-line react-hooks/purity
             finalDmg *= 2.5;
             isCrit = true;
         }
@@ -448,6 +495,9 @@ export default function RpgSquadBattler() {
             color: isCrit ? '#f59e0b' : '#ef4444',
             life: 1
         });
+
+        // ダメージによる経験値付与
+        giveExp(attacker, 5 + (finalDmg / target.maxHp) * 20, s);
 
         // スキル：吸血
         if (attacker.skill?.id === 'VAMPIRE') {
@@ -467,6 +517,9 @@ export default function RpgSquadBattler() {
                 target.hp = 0;
                 target.isDead = true;
                 attacker.kills++;
+
+                // 撃破経験値
+                giveExp(attacker, 50, s);
 
                 if (target.isPlayer) {
                     addLog(`仲間の ${target.name} が戦死した…`);
@@ -605,17 +658,9 @@ export default function RpgSquadBattler() {
         s.players.forEach(p => {
             if (!p.isDead) {
                 p.survivedStages += 1;
-                p.level += 1; // 生存でレベルアップ
-                let growthMult = 1.0;
-                if (p.skill?.id === 'GROWTH_UP') growthMult = 2.0;
 
-                // 個体値ブレ（-10%〜+10%）を成長量にも適用
-                const applyVariance = (val: number) => Math.max(1, Math.floor(val * (0.9 + Math.random() * 0.2)));
-
-                p.maxHp += applyVariance(p.job.growth.hp * growthMult * p.job.hpMod);
-                p.atk += applyVariance(p.job.growth.atk * growthMult * p.job.atkMod);
-                p.def += applyVariance(p.job.growth.def * growthMult * p.job.defMod);
-                p.spd += applyVariance(p.job.growth.spd * growthMult * p.job.spdMod);
+                // ステージクリアボーナス経験値
+                giveExp(p, 50, s);
 
                 if (p.skill?.id === 'FULL_HEAL') {
                     p.hp = p.maxHp;
@@ -658,9 +703,69 @@ export default function RpgSquadBattler() {
             </h1>
             <p className="text-gray-400 mb-4 text-sm">役職とスキルを持つキャラクター達が織りなすエンドレス総力戦</p>
 
-            <div className="flex gap-4 w-full max-w-7xl">
-                {/* メイン画面 */}
-                <div className="flex-grow flex flex-col gap-4">
+            <div className="flex gap-4 w-full max-w-[1600px]">
+                {/* 左サイドバー：味方部隊リスト */}
+                <div className="w-[300px] flex flex-col gap-4 flex-shrink-0">
+                    <div className="bg-gray-800 rounded-lg p-4 flex-grow flex flex-col border border-gray-700 shadow-md h-[calc(100vh-140px)]">
+                        <h3 className="font-bold text-gray-300 mb-2 border-b border-gray-700 pb-1 flex justify-between">
+                            <span className="text-blue-400">味方部隊名簿</span>
+                            <span className="text-sm text-gray-500">生存 {players.filter(p=>!p.isDead).length}名</span>
+                        </h3>
+                        <div className="overflow-y-auto flex-grow space-y-2 pr-1 custom-scrollbar">
+                            {players.map((p) => {
+                                const rankInfo = getRankDisplay(p.survivedStages || 0);
+                                const expPercent = Math.min(100, (p.exp / (p.level * 100)) * 100);
+                                return (
+                                <div key={p.id} className={`p-2 rounded bg-gray-900 border ${p.isDead ? 'border-red-900/50 opacity-50' : 'border-gray-700'} flex flex-col gap-1`}>
+                                    <div className="flex justify-between items-center">
+                                        <div className="font-bold text-sm flex items-center gap-1 truncate max-w-[150px]">
+                                            <span style={{color: p.job.color}}>●</span>
+                                            {p.name}
+                                            {rankInfo.icon && <span className="text-xs" title={rankInfo.title}>{rankInfo.icon}</span>}
+                                        </div>
+                                        <div className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
+                                            <span className="font-mono text-[10px]">Lv.{p.level}</span>
+                                            {rankInfo.title !== '新兵' && <span className="text-[10px] text-yellow-500 border border-yellow-700/50 bg-yellow-900/20 px-1 rounded">{rankInfo.title}</span>}
+                                            {p.job.name}
+                                        </div>
+                                    </div>
+
+                                    {!p.isDead ? (
+                                        <>
+                                            <div className="flex flex-col gap-1">
+                                                {/* HP Bar */}
+                                                <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                                    <div className="bg-green-500 h-full transition-all duration-300" style={{width: `${(p.hp/p.maxHp)*100}%`}}></div>
+                                                </div>
+                                                {/* EXP Bar */}
+                                                <div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden flex">
+                                                    <div className="bg-yellow-400 h-full transition-all duration-300" style={{width: `${expPercent}%`}}></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                                <span>HP:{p.hp}/{p.maxHp}</span>
+                                                <span>攻:{p.atk} 防:{p.def} 速:{p.spd}</span>
+                                            </div>
+
+                                            {p.skill && (
+                                                <div className="text-[10px] bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded inline-block w-fit mt-0.5" title={p.skill.desc}>
+                                                    ★ {p.skill.name}
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="text-xs text-red-500 font-bold text-center mt-1">戦死 (Kills: {p.kills})</div>
+                                    )}
+                                </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* メイン画面 (中央) */}
+                <div className="flex-grow flex flex-col gap-4 min-w-[700px]">
                     {/* ステータスヘッダー */}
                     <div className="flex justify-between items-center bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
                         <div className="text-xl font-bold text-blue-400">STAGE {stage}</div>
@@ -720,8 +825,8 @@ export default function RpgSquadBattler() {
                     </div>
                 </div>
 
-                {/* サイドバー：ログと部隊リスト */}
-                <div className="w-[350px] flex flex-col gap-4 flex-shrink-0">
+                {/* 右サイドバー：戦闘ログと敵部隊リスト */}
+                <div className="w-[300px] flex flex-col gap-4 flex-shrink-0">
                     {/* 戦闘ログ */}
                     <div className="bg-gray-800 rounded-lg p-4 h-[250px] flex flex-col border border-gray-700 shadow-md">
                         <h3 className="font-bold text-gray-300 mb-2 border-b border-gray-700 pb-1">戦闘ログ</h3>
@@ -734,54 +839,40 @@ export default function RpgSquadBattler() {
                         </div>
                     </div>
 
-                    {/* 部隊リスト */}
-                    <div className="bg-gray-800 rounded-lg p-4 flex-grow flex flex-col border border-gray-700 shadow-md h-[400px]">
+                    {/* 敵部隊リスト */}
+                    <div className="bg-gray-800 rounded-lg p-4 flex-grow flex flex-col border border-gray-700 shadow-md h-[calc(100vh-410px)]">
                         <h3 className="font-bold text-gray-300 mb-2 border-b border-gray-700 pb-1 flex justify-between">
-                            <span>部隊名簿</span>
-                            <span className="text-sm text-gray-500">生存 {players.filter(p=>!p.isDead).length}名</span>
+                            <span className="text-red-400">敵部隊名簿</span>
+                            <span className="text-sm text-gray-500">残存 {enemies.filter(e=>!e.isDead).length}名</span>
                         </h3>
                         <div className="overflow-y-auto flex-grow space-y-2 pr-1 custom-scrollbar">
-                            {players.map((p) => {
-                                const rankInfo = getRankDisplay(p.survivedStages || 0);
-                                return (
-                                <div key={p.id} className={`p-2 rounded bg-gray-900 border ${p.isDead ? 'border-red-900/50 opacity-50' : 'border-gray-700'} flex flex-col gap-1`}>
+                            {enemies.map((e) => (
+                                <div key={e.id} className={`p-2 rounded bg-gray-900 border ${e.isDead ? 'border-red-900/50 opacity-50' : 'border-gray-700'} flex flex-col gap-1`}>
                                     <div className="flex justify-between items-center">
-                                        <div className="font-bold text-sm flex items-center gap-1">
-                                            <span style={{color: p.job.color}}>●</span>
-                                            {p.name}
-                                            {rankInfo.icon && <span className="text-xs" title={rankInfo.title}>{rankInfo.icon}</span>}
+                                        <div className="font-bold text-sm flex items-center gap-1 truncate max-w-[150px]">
+                                            <span style={{color: e.job.color}}>●</span> {e.name}
                                         </div>
-                                        <div className="text-xs text-gray-400 flex items-center gap-1">
-                                            <span className="font-mono text-[10px]">Lv.{p.level}</span>
-                                            {rankInfo.title !== '新兵' && <span className="text-[10px] text-yellow-500 border border-yellow-700/50 bg-yellow-900/20 px-1 rounded">{rankInfo.title}</span>}
-                                            {p.job.name}
+                                        <div className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
+                                            <span className="font-mono text-[10px]">Lv.{e.level}</span>
+                                            {e.job.name}
                                         </div>
                                     </div>
 
-                                    {!p.isDead ? (
+                                    {!e.isDead ? (
                                         <>
-                                            {/* HP Bar */}
                                             <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                                                <div className="bg-green-500 h-full" style={{width: `${(p.hp/p.maxHp)*100}%`}}></div>
+                                                <div className="bg-red-500 h-full transition-all duration-300" style={{width: `${(e.hp/e.maxHp)*100}%`}}></div>
                                             </div>
-
-                                            <div className="flex justify-between text-[10px] text-gray-400">
-                                                <span>HP:{p.hp}/{p.maxHp}</span>
-                                                <span>攻:{p.atk} 防:{p.def} 速:{p.spd}</span>
+                                            <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                                <span>HP:{e.hp}/{e.maxHp}</span>
+                                                <span>攻:{e.atk} 防:{e.def} 速:{e.spd}</span>
                                             </div>
-
-                                            {p.skill && (
-                                                <div className="text-[10px] bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded inline-block w-fit mt-0.5" title={p.skill.desc}>
-                                                    ★ {p.skill.name}
-                                                </div>
-                                            )}
                                         </>
                                     ) : (
-                                        <div className="text-xs text-red-500 font-bold text-center mt-1">戦死 (Kills: {p.kills})</div>
+                                        <div className="text-xs text-red-500 font-bold text-center mt-1">撃破</div>
                                     )}
                                 </div>
-                                );
-                            })}
+                            ))}
                         </div>
                     </div>
                 </div>
