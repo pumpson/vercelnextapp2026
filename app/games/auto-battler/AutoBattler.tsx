@@ -17,7 +17,7 @@ const generateUUID = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
-const generateCharacter = (team, stageMultiplier = 1) => {
+const generateCharacter = (team: 'player' | 'enemy', stageMultiplier = 1) => {
   const hpBase = Math.floor((50 + Math.random() * 50) * stageMultiplier);
   const atkBase = Math.floor((10 + Math.random() * 10) * stageMultiplier);
   const defBase = Math.floor((5 + Math.random() * 10) * stageMultiplier);
@@ -42,9 +42,9 @@ const generateCharacter = (team, stageMultiplier = 1) => {
 export default function AutoBattler() {
   const [phase, setPhase] = useState('title'); // title, battle, clear, gameover
   const [stage, setStage] = useState(1);
-  const [players, setPlayers] = useState([]);
-  const [enemies, setEnemies] = useState([]);
-  const [logs, setLogs] = useState([]);
+  const [players, setPlayers] = useState<any[]>([]);
+  const [enemies, setEnemies] = useState<any[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
 
   // バトルループ制御用
   const requestRef = useRef<number | undefined>(undefined);
@@ -60,7 +60,7 @@ export default function AutoBattler() {
     stateRef.current = { players, enemies, logs, phase };
   }, [players, enemies, logs, phase]);
 
-  const addLog = (msg) => {
+  const addLog = (msg: string) => {
     setLogs(prev => {
       const newLogs = [msg, ...prev];
       return newLogs.slice(0, 50); // 最新50件のみ保持
@@ -116,7 +116,7 @@ export default function AutoBattler() {
     setPhase('battle');
   };
 
-  const updateBattleRef = useRef<() => void>();
+  const updateBattleRef = useRef<() => void>(undefined);
 
   const updateBattle = useCallback(() => {
     const now = Date.now();
@@ -139,7 +139,7 @@ export default function AutoBattler() {
     let hasStateChanged = false;
 
     // 行動可能なキャラクターの処理関数
-    const processTeamActions = (attackers, defenders) => {
+    const processTeamActions = (attackers: any[], defenders: any[]) => {
       let aliveDefenders = defenders.filter(d => !d.isDead);
 
       for (let i = 0; i < attackers.length; i++) {
@@ -233,7 +233,7 @@ export default function AutoBattler() {
   }, [phase, updateBattle]);
 
   // UIコンポーネント: キャラクターカード
-  const CharacterCard = ({ char }) => {
+  const CharacterCard = ({ char }: { char: any }) => {
     const hpPercent = Math.max(0, (char.hp / char.maxHp) * 100);
     const gaugePercent = Math.min(100, char.gauge);
     const now = Date.now();

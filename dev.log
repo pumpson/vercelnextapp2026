@@ -1,0 +1,16 @@
+
+> my-app@0.1.0 dev
+> next dev
+
+▲ Next.js 16.3.0-preview.10 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 887ms
+✓ Running next.config.ts took 93ms
+- Experiments (use with caution):
+  ✓ turbopackFileSystemCacheForBuild
+  · turbopackMemoryEviction: "full"
+
+ GET /games/rpg-squad-battler 200 in 769ms (next.js: 363ms, application-code: 406ms)
+ GET /games/rpg-squad-battler 200 in 96ms (next.js: 9ms, application-code: 87ms)
+ GET /games/rpg-squad-battler 200 in 73ms (next.js: 4ms, application-code: 69ms)

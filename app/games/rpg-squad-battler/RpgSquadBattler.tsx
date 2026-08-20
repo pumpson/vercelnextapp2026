@@ -4,8 +4,20 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 // --- データ定義 ---
-const FIRST_NAMES = ["アレン", "カイト", "レオ", "ルーク", "シオン", "アリス", "クロエ", "ルナ", "リリィ", "エルザ", "レオン", "ゼクス", "レイ", "カイ", "ジン", "サラ", "マリア", "アンナ", "エマ", "オリビア", "ソフィア", "ミア", "アーサー", "ランス", "ガウェイン", "ジャンヌ", "マルグリット"];
-const LAST_NAMES = ["・スミス", "・ウィリアムズ", "・ブラウン", "・ジョーンズ", "・ガルシア", "・ミラー", "・デイヴィス", "・ロドリゲス", "・ハート", "・ストーム", "・シャドウ", "・ライト", "・ブレード", "・シールド", "・アロー"];
+const FIRST_NAMES = [
+    "アレン", "カイト", "レオ", "ルーク", "シオン", "アリス", "クロエ", "ルナ", "リリィ", "エルザ",
+    "レオン", "ゼクス", "レイ", "カイ", "ジン", "サラ", "マリア", "アンナ", "エマ", "オリビア",
+    "ソフィア", "ミア", "アーサー", "ランス", "ガウェイン", "ジャンヌ", "マルグリット",
+    "フェリス", "アルド", "セシル", "ノア", "リオン", "ユウリ", "エヴァン", "グレン",
+    "アイシャ", "ニーナ", "ルーシー", "クララ", "ディアナ", "シルビア", "エレナ", "ユイ",
+    "ヴィクター", "ロイド", "オスカー", "クライヴ", "ラルフ", "ディートリヒ"
+];
+const LAST_NAMES = [
+    "・スミス", "・ウィリアムズ", "・ブラウン", "・ジョーンズ", "・ガルシア", "・ミラー", "・デイヴィス",
+    "・ロドリゲス", "・ハート", "・ストーム", "・シャドウ", "・ライト", "・ブレード", "・シールド", "・アロー",
+    "・ローズ", "・フォード", "・ガーランド", "・ロック", "・ヴァンス", "・スターク", "・ランスロット",
+    "・ハミルトン", "・フローレス", "・クロス", "・クラウド", "・ルビー", "・サファイア", "・グレイ"
+];
 
 const generateName = () => {
     const first = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
@@ -16,30 +28,41 @@ const generateName = () => {
 
 // 役職の定義
 const JOBS = [
-    { id: 'SWORDSMAN', name: '剣士', hpMod: 1.3, atkMod: 1.5, defMod: 1.1, spdMod: 1.3, range: 30, color: '#4facfe', growth: { hp: 12, atk: 5, def: 2, spd: 1 } },
-    { id: 'HEAVY_ARMOR', name: '重装備兵', hpMod: 2.0, atkMod: 1.0, defMod: 2.0, spdMod: 0.6, range: 35, color: '#43e97b', growth: { hp: 25, atk: 3, def: 4, spd: 0.5 } },
-    { id: 'MAGE', name: '魔導士', hpMod: 0.7, atkMod: 1.8, defMod: 0.5, spdMod: 0.9, range: 120, color: '#b224ef', growth: { hp: 5, atk: 5, def: 0.5, spd: 1 } },
-    { id: 'ARCHER', name: '弓使い', hpMod: 0.8, atkMod: 1.1, defMod: 0.7, spdMod: 1.5, range: 150, color: '#00f2fe', growth: { hp: 6, atk: 2, def: 1, spd: 2 } },
-    { id: 'CLERIC', name: '僧侶', hpMod: 0.9, atkMod: 0.5, defMod: 0.9, spdMod: 1.0, range: 100, color: '#fddb92', growth: { hp: 8, atk: 1, def: 1, spd: 1 } } // 回復役
+    { id: 'SWORDSMAN', name: '剣士', damageType: 'physical', hpMod: 1.3, atkMod: 1.5, mAtkMod: 0.1, defMod: 1.1, mDefMod: 0.8, spdMod: 1.3, range: 30, color: '#4facfe', growth: { hp: 12, atk: 5, mAtk: 0, def: 2, mDef: 1, spd: 1 } },
+    { id: 'HEAVY_ARMOR', name: '重装備兵', damageType: 'physical', hpMod: 2.0, atkMod: 1.0, mAtkMod: 0.1, defMod: 2.0, mDefMod: 0.5, spdMod: 0.6, range: 35, color: '#43e97b', growth: { hp: 25, atk: 3, mAtk: 0, def: 4, mDef: 0, spd: 0.5 } },
+    { id: 'ARCHER', name: '弓使い', damageType: 'physical', hpMod: 0.8, atkMod: 1.1, mAtkMod: 0.3, defMod: 0.7, mDefMod: 0.9, spdMod: 1.5, range: 150, color: '#00f2fe', growth: { hp: 6, atk: 2, mAtk: 0, def: 1, mDef: 1, spd: 2 } },
+    { id: 'MAGE', name: '魔導士', damageType: 'magical', hpMod: 0.7, atkMod: 0.2, mAtkMod: 1.8, defMod: 0.5, mDefMod: 1.5, spdMod: 0.9, range: 120, color: '#b224ef', growth: { hp: 5, atk: 0, mAtk: 5, def: 0.5, mDef: 3, spd: 1 } },
+    { id: 'SORCERER', name: '大魔導士', damageType: 'magical', hpMod: 0.6, atkMod: 0.1, mAtkMod: 2.5, defMod: 0.4, mDefMod: 2.0, spdMod: 0.8, range: 140, color: '#d500f9', growth: { hp: 4, atk: 0, mAtk: 7, def: 0.2, mDef: 4, spd: 0.8 } },
+    { id: 'MAGIC_SWORDSMAN', name: '魔法剣士', damageType: 'physical', hpMod: 1.1, atkMod: 1.2, mAtkMod: 1.2, defMod: 1.0, mDefMod: 1.0, spdMod: 1.1, range: 30, color: '#8e24aa', growth: { hp: 10, atk: 3, mAtk: 3, def: 1, mDef: 1, spd: 1 } },
+    { id: 'CLERIC', name: '僧侶', damageType: 'magical', hpMod: 0.9, atkMod: 0.1, mAtkMod: 0.8, defMod: 0.9, mDefMod: 1.2, spdMod: 1.0, range: 100, color: '#fddb92', growth: { hp: 8, atk: 0, mAtk: 2, def: 1, mDef: 2, spd: 1 } } // 回復役
 ];
 
-// スキルの定義（15種類）
+// スキルの定義（23種類）
 const SKILLS = [
     { id: 'GROWTH_UP', name: '大器晩成', desc: '勝利後のステータスアップ量が2倍' },
     { id: 'FULL_HEAL', name: '自己再生', desc: '勝利後のHP回復が全回復になる' },
-    { id: 'HEAVY_BLOW', name: '渾身の一撃', desc: '与えるダメージが1.5倍になる' },
+    { id: 'HEAVY_BLOW', name: '渾身の一撃', desc: '与える物理ダメージが1.5倍になる' },
     { id: 'STEALTH', name: '隠密', desc: '敵から狙われにくくなる' },
     { id: 'TAUNT', name: '挑発', desc: '受けるダメージが20%減るが、攻撃力が下がり、非常に狙われやすくなる' },
     { id: 'DOUBLE_ATTACK', name: '連続攻撃', desc: '20%の確率で2回攻撃する' },
     { id: 'GUTS', name: '根性', desc: 'HPが0になるダメージを受けた時、一度だけHP1で耐える' },
-    { id: 'CRITICAL', name: '会心', desc: '15%の確率でダメージが2.5倍になる' },
+    { id: 'CRITICAL', name: '会心', desc: 'クリティカル率が15%加算される' },
     { id: 'VAMPIRE', name: '吸血', desc: '与えたダメージの30%分、自分のHPを回復する' },
     { id: 'SPEED_STAR', name: '神速', desc: '移動速度と攻撃速度が1.5倍になる' },
     { id: 'GIANT_KILLING', name: 'ジャイアントキル', desc: '自分より現在HPが高い敵へのダメージが2倍' },
-    { id: 'REVENGE', name: '復讐者', desc: '味方が死ぬたびに攻撃力が5%アップ（ステージ中のみ）' },
+    { id: 'REVENGE', name: '復讐者', desc: '味方が死ぬたびに物理・魔法攻撃力が5%アップ（ステージ中のみ）' },
     { id: 'FIRST_AID', name: '応急処置', desc: '戦闘開始時にHPが最大値の20%回復する' },
-    { id: 'ARMOR_PIERCE', name: '貫通', desc: '敵の防御力を無視してダメージを与える' },
-    { id: 'LUCKY', name: '幸運', desc: '敵の攻撃を25%の確率で完全に回避する' }
+    { id: 'ARMOR_PIERCE', name: '貫通', desc: '敵の物理防御力を無視してダメージを与える' },
+    { id: 'LUCKY', name: '幸運', desc: '敵の攻撃を25%の確率で完全に回避する' },
+    // 新規スキル
+    { id: 'MAGIC_ECHO', name: '魔力反響', desc: '与える魔法ダメージが1.5倍になる' },
+    { id: 'FATAL_BLOW', name: '急所狙い', desc: 'クリティカル時のダメージ倍率が2.5倍から3.5倍になる' },
+    { id: 'BERSERKER', name: '狂戦士', desc: '物理攻撃力が2倍になるが、物理・魔法防御力が半分になる' },
+    { id: 'MAGIC_BARRIER', name: '魔法障壁', desc: '受ける魔法ダメージを半減する' },
+    { id: 'IRON_WALL', name: '鉄壁', desc: '受ける物理ダメージを半減する' },
+    { id: 'ELEMENTAL_WEAPON', name: '属性付与', desc: '物理攻撃時に、自身の魔法攻撃力の50%をダメージに上乗せする' },
+    { id: 'HAWK_EYE', name: '鷹の目', desc: 'クリティカル率が常に100%になるが、ダメージ倍率が1.5倍になる' },
+    { id: 'HOLY_PRAYER', name: '祈りの極意', desc: '僧侶専用: 回復量がクリティカル判定（2倍）を持つようになる（僧侶以外が持つと無意味）' }
 ];
 
 const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: number = 1) => {
@@ -65,7 +88,9 @@ const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: numbe
 
     const baseHp = applyVariance((100 + job.growth.hp * (level - 1)) * job.hpMod);
     const baseAtk = applyVariance((15 + job.growth.atk * (level - 1)) * job.atkMod);
+    const baseMAtk = applyVariance((15 + job.growth.mAtk * (level - 1)) * job.mAtkMod);
     const baseDef = applyVariance((5 + job.growth.def * (level - 1)) * job.defMod);
+    const baseMDef = applyVariance((5 + job.growth.mDef * (level - 1)) * job.mDefMod);
     const baseSpd = applyVariance((30 + job.growth.spd * (level - 1)) * job.spdMod);
 
     return {
@@ -78,7 +103,9 @@ const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: numbe
         maxHp: baseHp,
         hp: baseHp,
         atk: baseAtk,
+        mAtk: baseMAtk,
         def: baseDef,
+        mDef: baseMDef,
         spd: baseSpd,
         kills: 0,
         x: 0,
@@ -88,7 +115,8 @@ const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: numbe
         cooldown: 0,
         isDead: false,
         gutsUsed: false,
-        battleAtkMod: 1.0, // 戦闘中のバフ用
+        battleAtkMod: 1.0, // 戦闘中の物理バフ用
+        battleMAtkMod: 1.0, // 戦闘中の魔法バフ用
         survivedStages: 0, // 生存したステージ数
         exp: 0 // 現在の経験値
     };
@@ -127,7 +155,7 @@ export default function RpgSquadBattler() {
         lastUiUpdateTime: 0
     });
 
-    const reqIdRef = useRef<number>();
+    const reqIdRef = useRef<number>(undefined);
 
     // ログ追加関数
     const addLog = useCallback((msg: string) => {
@@ -143,7 +171,7 @@ export default function RpgSquadBattler() {
     useEffect(() => {
         if (!initRef.current) {
             initRef.current = true;
-            const initialPlayers = [];
+            const initialPlayers: any[] = [];
             for (let i = 0; i < 30; i++) {
                 initialPlayers.push(generateCharacter(true, 1));
             }
@@ -289,10 +317,18 @@ export default function RpgSquadBattler() {
                 // 射程内なら攻撃（または回復）
                 if (unit.cooldown <= 0) {
                     if (unit.job.id === 'CLERIC' && target.isPlayer === unit.isPlayer) {
-                        // 回復行動
-                        const healAmt = Math.floor(unit.atk * 1.5);
+                        // 回復行動（魔法攻撃力依存に変更）
+                        let healAmt = Math.floor(unit.mAtk * 1.5);
+
+                        // スキル：祈りの極意（僧侶専用クリティカルヒール）
+                        let isCritHeal = false;
+                        if (unit.skill?.id === 'HOLY_PRAYER' && Math.random() < 0.15) {
+                            healAmt *= 2.0;
+                            isCritHeal = true;
+                        }
+
                         target.hp = Math.min(target.maxHp, target.hp + healAmt);
-                        s.floatingTexts.push({ x: target.x, y: target.y - 20, text: `+${healAmt}`, color: '#10b981', life: 1 });
+                        s.floatingTexts.push({ x: target.x, y: target.y - 20, text: isCritHeal ? `CRIT +${healAmt}` : `+${healAmt}`, color: '#10b981', life: 1 });
                         spawnParticles(s.particles, target.x, target.y, '#10b981', 5);
 
                         // 回復経験値
@@ -403,15 +439,39 @@ export default function RpgSquadBattler() {
     };
 
     const executeAttack = (attacker: any, target: any, s: any) => {
-        let baseDmg = Math.max(1, attacker.atk * attacker.battleAtkMod - target.def);
+        const isMagical = attacker.job.damageType === 'magical';
 
-        // スキル：貫通
-        if (attacker.skill?.id === 'ARMOR_PIERCE') {
-             baseDmg = attacker.atk * attacker.battleAtkMod;
+        let atkStat = isMagical ? (attacker.mAtk * attacker.battleMAtkMod) : (attacker.atk * attacker.battleAtkMod);
+        let defStat = isMagical ? target.mDef : target.def;
+
+        // スキル：貫通（物理のみ）
+        if (!isMagical && attacker.skill?.id === 'ARMOR_PIERCE') {
+            defStat = 0;
         }
 
-        // スキル：渾身の一撃
-        if (attacker.skill?.id === 'HEAVY_BLOW') baseDmg *= 1.5;
+        // スキル：狂戦士（物理攻撃力2倍）
+        if (attacker.skill?.id === 'BERSERKER' && !isMagical) atkStat *= 2.0;
+
+        // スキル：属性付与（物理攻撃時に魔力の50%上乗せ）
+        if (attacker.skill?.id === 'ELEMENTAL_WEAPON' && !isMagical) {
+             atkStat += (attacker.mAtk * attacker.battleMAtkMod * 0.5);
+        }
+
+        // 防御側スキル：魔法障壁 / 鉄壁
+        if (isMagical && target.skill?.id === 'MAGIC_BARRIER') defStat *= 2.0; // 実質ダメージ半減とするため防御を上げるアプローチか、直接ダメージ半減か。直接半減の方がよいので後で計算する。
+
+        let baseDmg = Math.max(1, atkStat - defStat);
+
+        // スキル：渾身の一撃（物理のみ）
+        if (!isMagical && attacker.skill?.id === 'HEAVY_BLOW') baseDmg *= 1.5;
+
+        // スキル：魔力反響（魔法のみ）
+        if (isMagical && attacker.skill?.id === 'MAGIC_ECHO') baseDmg *= 1.5;
+
+        // 防御側スキルによる最終ダメージ軽減
+        if (isMagical && target.skill?.id === 'MAGIC_BARRIER') baseDmg *= 0.5;
+        if (!isMagical && target.skill?.id === 'IRON_WALL') baseDmg *= 0.5;
+
         // スキル：挑発（攻撃力ダウン）
         if (attacker.skill?.id === 'TAUNT') baseDmg *= 0.7;
 
@@ -475,10 +535,29 @@ export default function RpgSquadBattler() {
 
         let finalDmg = rawDmg;
 
-        // スキル：会心
+        // クリティカル判定（基本2%）
         let isCrit = false;
-        if (attacker.skill?.id === 'CRITICAL' && Math.random() < 0.15) { // eslint-disable-line react-hooks/purity
-            finalDmg *= 2.5;
+        let critChance = 0.02;
+        let critMultiplier = 2.5;
+
+        // スキル：会心
+        if (attacker.skill?.id === 'CRITICAL') critChance += 0.15;
+
+        // スキル：鷹の目
+        if (attacker.skill?.id === 'HAWK_EYE') {
+            critChance = 1.0;
+            critMultiplier = 1.5; // 倍率下落
+        }
+
+        // スキル：急所狙い
+        if (attacker.skill?.id === 'FATAL_BLOW') {
+            critMultiplier = 3.5;
+        }
+
+        if (Math.random() < critChance) { // eslint-disable-line react-hooks/purity
+            // クリティカル時は防御無視を模擬するため、元ダメージではなく再度計算するか、単純に倍率ドン
+            // 仕様として「ダメージ倍率が2.5倍」とする
+            finalDmg *= critMultiplier;
             isCrit = true;
         }
 
@@ -491,7 +570,7 @@ export default function RpgSquadBattler() {
         s.floatingTexts.push({
             x: target.x,
             y: target.y - 20,
-            text: isCrit ? `CRITICAL -${finalDmg}!` : `-${finalDmg}`,
+            text: isCrit ? `CRIT -${finalDmg}!` : `-${finalDmg}`,
             color: isCrit ? '#f59e0b' : '#ef4444',
             life: 1
         });
@@ -527,6 +606,7 @@ export default function RpgSquadBattler() {
                     s.players.forEach((p:any) => {
                         if (!p.isDead && p.skill?.id === 'REVENGE') {
                             p.battleAtkMod += 0.05;
+                            p.battleMAtkMod += 0.05;
                             s.floatingTexts.push({ x: p.x, y: p.y - 30, text: "復讐!", color: '#dc2626', life: 1 });
                         }
                     });
@@ -743,9 +823,12 @@ export default function RpgSquadBattler() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                            <div className="flex justify-between text-[10px] text-gray-400 mt-1 flex-wrap">
                                                 <span>HP:{p.hp}/{p.maxHp}</span>
-                                                <span>攻:{p.atk} 防:{p.def} 速:{p.spd}</span>
+                                                <span>物攻:{p.atk} 魔攻:{p.mAtk}</span>
+                                            </div>
+                                            <div className="flex justify-end text-[10px] text-gray-400">
+                                                <span>物防:{p.def} 魔防:{p.mDef} 速:{p.spd}</span>
                                             </div>
 
                                             {p.skill && (
@@ -863,9 +946,12 @@ export default function RpgSquadBattler() {
                                             <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
                                                 <div className="bg-red-500 h-full transition-all duration-300" style={{width: `${(e.hp/e.maxHp)*100}%`}}></div>
                                             </div>
-                                            <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                            <div className="flex justify-between text-[10px] text-gray-400 mt-1 flex-wrap">
                                                 <span>HP:{e.hp}/{e.maxHp}</span>
-                                                <span>攻:{e.atk} 防:{e.def} 速:{e.spd}</span>
+                                                <span>物攻:{e.atk} 魔攻:{e.mAtk}</span>
+                                            </div>
+                                            <div className="flex justify-end text-[10px] text-gray-400">
+                                                <span>物防:{e.def} 魔防:{e.mDef} 速:{e.spd}</span>
                                             </div>
                                         </>
                                     ) : (
