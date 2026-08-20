@@ -37,6 +37,12 @@ const JOBS = [
     { id: 'CLERIC', name: '僧侶', damageType: 'magical', hpMod: 0.9, atkMod: 0.1, mAtkMod: 0.8, defMod: 0.9, mDefMod: 1.2, spdMod: 1.0, range: 100, color: '#fddb92', growth: { hp: 8, atk: 0, mAtk: 2, def: 1, mDef: 2, spd: 1 } } // 回復役
 ];
 
+const BOSS_JOBS = [
+    { id: 'DRAGON', name: 'エンシェントドラゴン', damageType: 'physical', hpMod: 20.0, atkMod: 5.0, mAtkMod: 5.0, defMod: 3.0, mDefMod: 3.0, spdMod: 0.4, range: 80, color: '#ef4444', growth: { hp: 50, atk: 10, mAtk: 10, def: 5, mDef: 5, spd: 0 } },
+    { id: 'LICH', name: 'リッチキング', damageType: 'magical', hpMod: 15.0, atkMod: 1.0, mAtkMod: 8.0, defMod: 2.0, mDefMod: 4.0, spdMod: 0.5, range: 150, color: '#6d28d9', growth: { hp: 40, atk: 2, mAtk: 15, def: 3, mDef: 8, spd: 0 } },
+    { id: 'GOLEM', name: 'アイアンゴーレム', damageType: 'physical', hpMod: 30.0, atkMod: 3.0, mAtkMod: 0.1, defMod: 6.0, mDefMod: 2.0, spdMod: 0.3, range: 40, color: '#9ca3af', growth: { hp: 80, atk: 8, mAtk: 0, def: 10, mDef: 2, spd: 0 } },
+];
+
 // スキルの定義（23種類）
 const SKILLS = [
     { id: 'GROWTH_UP', name: '大器晩成', desc: '勝利後のステータスアップ量が2倍' },
@@ -65,7 +71,7 @@ const SKILLS = [
     { id: 'HOLY_PRAYER', name: '祈りの極意', desc: '僧侶専用: 回復量がクリティカル判定（2倍）を持つようになる（僧侶以外が持つと無意味）' }
 ];
 
-const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: number = 1) => {
+const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: number = 1, isBoss: boolean = false) => {
     // レベルの決定
     let level = 1;
     if (isPlayer) {
@@ -78,10 +84,18 @@ const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: numbe
     } else {
         // 敵のレベルは味方平均レベル + ステージに応じた緩やかなボーナス
         level = Math.max(1, averageLevel + Math.floor(stage / 3) + Math.floor(Math.random() * 3) - 1);
+        if (isBoss) {
+            level += 5; // ボスはさらにレベルが高い
+        }
     }
 
-    const job = JOBS[Math.floor(Math.random() * JOBS.length)];
-    const skill = isPlayer ? SKILLS[Math.floor(Math.random() * SKILLS.length)] : null;
+    const job = isBoss ? BOSS_JOBS[Math.floor(Math.random() * BOSS_JOBS.length)] : JOBS[Math.floor(Math.random() * JOBS.length)];
+    let skill = isPlayer ? SKILLS[Math.floor(Math.random() * SKILLS.length)] : null;
+
+    // 僧侶以外がHOLY_PRAYERを引いた場合は、無意味なので引き直す（あるいはスキルなしにする。ここでは単純に引き直す）
+    while(skill?.id === 'HOLY_PRAYER' && job.id !== 'CLERIC') {
+        skill = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+    }
 
     // ステータス算出: (基礎値 + 成長率 * レベル) * 役職補正 + 個体値(-10%~+10%)
     const applyVariance = (val: number) => Math.floor(val * (0.9 + Math.random() * 0.2));
@@ -200,11 +214,17 @@ export default function RpgSquadBattler() {
             : 1;
 
         // 敵の生成（ステージに応じて数と強さが変動。基本10～30人）
-        const enemyCount = Math.floor(10 + Math.random() * 21) + Math.floor(stage / 2); // eslint-disable-line react-hooks/purity
         const newEnemies = [];
-        for (let i = 0; i < enemyCount; i++) {
-            newEnemies.push(generateCharacter(false, stage, averageLevel));
+        if (stage % 10 === 0) {
+            // ボス戦（ボス1体のみ）
+            newEnemies.push(generateCharacter(false, stage, averageLevel, true));
+        } else {
+            const enemyCount = Math.floor(10 + Math.random() * 21) + Math.floor(stage / 2); // eslint-disable-line react-hooks/purity
+            for (let i = 0; i < enemyCount; i++) {
+                newEnemies.push(generateCharacter(false, stage, averageLevel));
+            }
         }
+
         setEnemies(newEnemies);
         s.enemies = newEnemies;
         setAliveEnemyCount(newEnemies.length);
@@ -243,7 +263,11 @@ export default function RpgSquadBattler() {
         s.lastTime = performance.now(); // eslint-disable-line react-hooks/purity
         setPhase('battle');
         addLog(`=== ステージ ${stage} 開始！ ===`);
-        addLog(`敵部隊が ${enemyCount} 体現れた！`);
+        if (stage % 10 === 0) {
+            addLog(`【警告】巨大なボスが現れた！`);
+        } else {
+            addLog(`敵部隊が ${newEnemies.length} 体現れた！`);
+        }
 
         if (reqIdRef.current) cancelAnimationFrame(reqIdRef.current);
         reqIdRef.current = requestAnimationFrame(gameLoop);
@@ -331,6 +355,10 @@ export default function RpgSquadBattler() {
                         s.floatingTexts.push({ x: target.x, y: target.y - 20, text: isCritHeal ? `CRIT +${healAmt}` : `+${healAmt}`, color: '#10b981', life: 1 });
                         spawnParticles(s.particles, target.x, target.y, '#10b981', 5);
 
+                        if (isCritHeal) {
+                             addLog(`【奇跡】${unit.name} の大回復！ ${target.name} を ${healAmt} 回復！`);
+                        }
+
                         // 回復経験値
                         giveExp(unit, 5 + (healAmt / target.maxHp) * 20, s);
                     } else {
@@ -367,7 +395,17 @@ export default function RpgSquadBattler() {
                 if (p.type === 'HEAL') {
                      // 既に回復処理は発射時に済ませているか、着弾時にするか
                 } else {
-                    applyDamage(p.source, p.target, p.damage, s);
+                    const isBoss = BOSS_JOBS.some(job => job.id === p.source.job.id);
+                    if (isBoss) {
+                        const opponents = p.source.isPlayer ? s.enemies : s.players;
+                        const hitOpponents = opponents.filter((o: any) => !o.isDead && Math.hypot(o.x - p.target.x, o.y - p.target.y) < p.source.job.range * 0.5); // 着弾点周囲
+                        hitOpponents.forEach((o: any) => {
+                            applyDamage(p.source, o, p.damage, s);
+                            spawnParticles(s.particles, o.x, o.y, '#f0f', 5);
+                        });
+                    } else {
+                        applyDamage(p.source, p.target, p.damage, s);
+                    }
                 }
                 spawnParticles(s.particles, p.target.x, p.target.y, p.color, 5);
                 return false;
@@ -491,8 +529,19 @@ export default function RpgSquadBattler() {
                 type: 'ATTACK'
             });
         } else {
-            applyDamage(attacker, target, baseDmg, s);
-            spawnParticles(s.particles, target.x, target.y, '#fff', 3);
+            // ボスの場合、近接でも周囲にダメージを与える（簡易範囲攻撃）
+            const isBoss = BOSS_JOBS.some(job => job.id === attacker.job.id);
+            if (isBoss) {
+                const opponents = attacker.isPlayer ? s.enemies : s.players;
+                const hitOpponents = opponents.filter((o: any) => !o.isDead && Math.hypot(o.x - attacker.x, o.y - attacker.y) < attacker.job.range * 1.5);
+                hitOpponents.forEach((o: any) => {
+                    applyDamage(attacker, o, baseDmg, s);
+                    spawnParticles(s.particles, o.x, o.y, '#ff0', 5);
+                });
+            } else {
+                applyDamage(attacker, target, baseDmg, s);
+                spawnParticles(s.particles, target.x, target.y, '#fff', 3);
+            }
         }
     };
 
@@ -555,9 +604,10 @@ export default function RpgSquadBattler() {
         }
 
         if (Math.random() < critChance) { // eslint-disable-line react-hooks/purity
-            // クリティカル時は防御無視を模擬するため、元ダメージではなく再度計算するか、単純に倍率ドン
-            // 仕様として「ダメージ倍率が2.5倍」とする
-            finalDmg *= critMultiplier;
+            // クリティカル時は防御力を無視した上でダメージ倍率を乗算
+            const isMagical = attacker.job.damageType === 'magical';
+            const rawAtkStat = isMagical ? (attacker.mAtk * attacker.battleMAtkMod) : (attacker.atk * attacker.battleAtkMod);
+            finalDmg = rawAtkStat * critMultiplier;
             isCrit = true;
         }
 
@@ -574,6 +624,11 @@ export default function RpgSquadBattler() {
             color: isCrit ? '#f59e0b' : '#ef4444',
             life: 1
         });
+
+        // ログ出力（クリティカル時や大ダメージ時など、頻度を下げるために一定確率かクリティカル時にログを残す）
+        if (isCrit) {
+            addLog(`【会心】${attacker.name} が ${target.name} に ${finalDmg} のダメージ！`);
+        }
 
         // ダメージによる経験値付与
         giveExp(attacker, 5 + (finalDmg / target.maxHp) * 20, s);
@@ -592,6 +647,7 @@ export default function RpgSquadBattler() {
                 target.hp = 1;
                 target.gutsUsed = true;
                 s.floatingTexts.push({ x: target.x, y: target.y - 30, text: "根性!", color: '#fbbf24', life: 1 });
+                addLog(`【根性】${target.name} は致命傷を耐え抜いた！`);
             } else {
                 target.hp = 0;
                 target.isDead = true;
@@ -601,7 +657,7 @@ export default function RpgSquadBattler() {
                 giveExp(attacker, 50, s);
 
                 if (target.isPlayer) {
-                    addLog(`仲間の ${target.name} が戦死した…`);
+                    addLog(`【戦死】仲間の ${target.name} が ${attacker.name} に討たれた…`);
                     // スキル：復讐者
                     s.players.forEach((p:any) => {
                         if (!p.isDead && p.skill?.id === 'REVENGE') {
@@ -665,12 +721,16 @@ export default function RpgSquadBattler() {
             // ユニット本体（役職の色）
             ctx.fillStyle = u.job.color;
             ctx.beginPath();
-            ctx.arc(0, -10, 8, 0, Math.PI * 2);
+
+            const isBoss = BOSS_JOBS.some(job => job.id === u.job.id);
+            const radius = isBoss ? 20 : 8; // ボスは大きく描画
+
+            ctx.arc(0, -10, radius, 0, Math.PI * 2);
             ctx.fill();
 
             // プレイヤーなら白い縁取り、敵なら赤い縁取り
             ctx.strokeStyle = u.isPlayer ? '#fff' : '#fca5a5';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = isBoss ? 4 : 2;
             ctx.stroke();
 
             // 武器の簡易描画
@@ -758,12 +818,10 @@ export default function RpgSquadBattler() {
             ? Math.floor(s.players.reduce((sum, p) => sum + p.level, 0) / s.players.length)
             : 1;
 
-        // 新規加入 (毎ステージ 3〜5人ランダム補充、ただし上限30人)
-        const recruitsCount = Math.floor(3 + Math.random() * 3);
-        for(let i=0; i<recruitsCount; i++) {
-             if (s.players.length < 30) {
-                 s.players.push(generateCharacter(true, stage, averageLevel));
-             }
+        // 新規加入 (毎ステージ上限30人になるまで全補充)
+        const recruitsCount = 30 - s.players.length;
+        for(let i = 0; i < recruitsCount; i++) {
+             s.players.push(generateCharacter(true, stage, averageLevel));
         }
 
         setStage(prev => prev + 1);
