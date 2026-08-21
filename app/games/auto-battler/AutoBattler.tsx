@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Shield, Sword, Heart, Zap, Skull, Users, ArrowRight, Play, RefreshCw } from 'lucide-react';
 
@@ -16,7 +17,7 @@ const generateUUID = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
 
-const generateCharacter = (team, stageMultiplier = 1) => {
+const generateCharacter = (team: 'player' | 'enemy', stageMultiplier = 1) => {
   const hpBase = Math.floor((50 + Math.random() * 50) * stageMultiplier);
   const atkBase = Math.floor((10 + Math.random() * 10) * stageMultiplier);
   const defBase = Math.floor((5 + Math.random() * 10) * stageMultiplier);
@@ -38,24 +39,28 @@ const generateCharacter = (team, stageMultiplier = 1) => {
   };
 };
 
-export default function App() {
+export default function AutoBattler() {
   const [phase, setPhase] = useState('title'); // title, battle, clear, gameover
   const [stage, setStage] = useState(1);
-  const [players, setPlayers] = useState([]);
-  const [enemies, setEnemies] = useState([]);
-  const [logs, setLogs] = useState([]);
-  
+  const [players, setPlayers] = useState<any[]>([]);
+  const [enemies, setEnemies] = useState<any[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
+
   // バトルループ制御用
-  const requestRef = useRef();
-  const lastUpdateRef = useRef(Date.now());
-  
+  const requestRef = useRef<number | undefined>(undefined);
+  const lastUpdateRef = useRef<number>(0);
+
+  useEffect(() => {
+    lastUpdateRef.current = Date.now();
+  }, []);
+
   // stateの最新値をRefに保持（setInterval/requestAnimationFrame内で使うため）
   const stateRef = useRef({ players, enemies, logs, phase });
   useEffect(() => {
     stateRef.current = { players, enemies, logs, phase };
   }, [players, enemies, logs, phase]);
 
-  const addLog = (msg) => {
+  const addLog = (msg: string) => {
     setLogs(prev => {
       const newLogs = [msg, ...prev];
       return newLogs.slice(0, 50); // 最新50件のみ保持
@@ -74,11 +79,11 @@ export default function App() {
 
   const nextStage = () => {
     setStage(prev => prev + 1);
-    
+
     // 生存者の回復と成長
     const nextPlayers = players.map(p => {
       if (p.isDead) return p;
-      
+
       const healAmount = Math.floor(p.maxHp * 0.3); // 30%回復
       const newMaxHp = Math.floor(p.maxHp * 1.1); // 最大HP 10%UP
       const newAtk = Math.floor(p.atk * 1.1);
@@ -111,37 +116,41 @@ export default function App() {
     setPhase('battle');
   };
 
+  const updateBattleRef = useRef<() => void>(undefined);
+
   const updateBattle = useCallback(() => {
     const now = Date.now();
     const dt = now - lastUpdateRef.current;
-    
+
     // 一定時間経過していなければスキップ（フレームレート調整）
     if (dt < 50) {
-      requestRef.current = requestAnimationFrame(updateBattle);
+      if (updateBattleRef.current) {
+         requestRef.current = requestAnimationFrame(updateBattleRef.current);
+      }
       return;
     }
     lastUpdateRef.current = now;
 
     if (stateRef.current.phase !== 'battle') return;
 
-    let currentPlayers = [...stateRef.current.players];
-    let currentEnemies = [...stateRef.current.enemies];
+    const currentPlayers = [...stateRef.current.players];
+    const currentEnemies = [...stateRef.current.enemies];
     let currentLogs = [...stateRef.current.logs];
     let hasStateChanged = false;
 
     // 行動可能なキャラクターの処理関数
-    const processTeamActions = (attackers, defenders) => {
+    const processTeamActions = (attackers: any[], defenders: any[]) => {
       let aliveDefenders = defenders.filter(d => !d.isDead);
-      
+
       for (let i = 0; i < attackers.length; i++) {
-        let attacker = attackers[i];
+        const attacker = attackers[i];
         if (attacker.isDead) continue;
 
         attacker.gauge += attacker.spd * (dt / 100); // ゲージ増加
 
         if (attacker.gauge >= 100) {
           if (aliveDefenders.length === 0) break; // 敵がいない
-          
+
           // 攻撃処理
           attacker.gauge = 0;
           attacker.lastActionTime = now;
@@ -159,7 +168,7 @@ export default function App() {
           // ダメージ適用（元の配列から直接探して更新）
           const defIndex = defenders.findIndex(d => d.id === target.id);
           defenders[defIndex] = { ...defenders[defIndex], hp: defenders[defIndex].hp - damage, lastHitTime: now };
-          
+
           let logMsg = `${attacker.name} の攻撃！ ${target.name} に ${damage} ダメージ。`;
 
           if (defenders[defIndex].hp <= 0) {
@@ -199,24 +208,36 @@ export default function App() {
     } else if (aliveEnemies === 0) {
       setPhase('clear');
     } else {
-      requestRef.current = requestAnimationFrame(updateBattle);
+      if (updateBattleRef.current) {
+        requestRef.current = requestAnimationFrame(updateBattleRef.current);
+      }
     }
   }, []);
 
   useEffect(() => {
+    updateBattleRef.current = updateBattle;
+  }, [updateBattle]);
+
+  useEffect(() => {
     if (phase === 'battle') {
       lastUpdateRef.current = Date.now();
-      requestRef.current = requestAnimationFrame(updateBattle);
+      if (updateBattleRef.current) {
+        requestRef.current = requestAnimationFrame(updateBattleRef.current);
+      }
     }
-    return () => cancelAnimationFrame(requestRef.current);
+    return () => {
+      if (requestRef.current !== undefined) {
+        cancelAnimationFrame(requestRef.current);
+      }
+    };
   }, [phase, updateBattle]);
 
   // UIコンポーネント: キャラクターカード
-  const CharacterCard = ({ char }) => {
+  const CharacterCard = ({ char }: { char: any }) => {
     const hpPercent = Math.max(0, (char.hp / char.maxHp) * 100);
     const gaugePercent = Math.min(100, char.gauge);
     const now = Date.now();
-    
+
     // 行動・被弾エフェクト
     const isActing = now - char.lastActionTime < 200;
     const isHit = now - char.lastHitTime < 200;
@@ -234,18 +255,18 @@ export default function App() {
           </div>
         )}
         <div className="font-bold truncate" title={char.name}>{char.name}</div>
-        
+
         {/* ステータス行 */}
         <div className="flex justify-between text-[10px] text-gray-300">
           <span className="flex items-center gap-0.5"><Heart className="w-3 h-3 text-red-400"/> {Math.ceil(char.hp)}/{char.maxHp}</span>
           <span className="flex items-center gap-0.5"><Sword className="w-3 h-3 text-gray-400"/> {char.atk}</span>
         </div>
-        
+
         {/* HPバー */}
         <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
           <div className={`h-full ${char.team === 'player' ? 'bg-green-500' : 'bg-red-500'}`} style={{ width: `${hpPercent}%` }}></div>
         </div>
-        
+
         {/* 行動ゲージ (生存時のみ) */}
         {!char.isDead && (
           <div className="w-full bg-gray-700 h-1 rounded-full overflow-hidden">
@@ -284,7 +305,7 @@ export default function App() {
 
       {/* メイン戦場表示 */}
       <main className="flex-1 overflow-hidden flex flex-col md:flex-row relative">
-        
+
         {/* プレイヤー軍 */}
         <div className="flex-1 border-r border-slate-800 p-2 overflow-y-auto bg-slate-900/50 pb-32 md:pb-2">
           <h2 className="text-center font-bold text-blue-400 mb-2 border-b border-blue-900/50 pb-1 sticky top-0 bg-slate-900 z-10">プレイヤー軍</h2>
@@ -321,7 +342,7 @@ export default function App() {
       {phase !== 'battle' && (
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-900 border border-slate-700 p-6 sm:p-10 rounded-xl shadow-2xl max-w-lg w-full text-center">
-            
+
             {phase === 'title' && (
               <>
                 <Shield className="w-20 h-20 text-blue-500 mx-auto mb-6" />
@@ -333,7 +354,7 @@ export default function App() {
                   戦場を生き残り、成長し、次なる戦地へ向かえ。<br/>
                   失われた命は二度と戻らない。
                 </p>
-                <button 
+                <button
                   onClick={startGame}
                   className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-lg"
                 >
@@ -346,7 +367,7 @@ export default function App() {
               <>
                 <h2 className="text-3xl font-black text-yellow-400 mb-2">STAGE {stage} CLEAR</h2>
                 <p className="text-slate-300 mb-6">敵軍を殲滅した！</p>
-                
+
                 <div className="bg-slate-800 p-4 rounded-lg mb-6 text-left text-sm">
                   <h3 className="font-bold text-blue-300 mb-2 flex items-center gap-2"><Heart className="w-4 h-4"/> 戦果報告</h3>
                   <ul className="space-y-1 text-slate-300">
@@ -356,7 +377,7 @@ export default function App() {
                   </ul>
                 </div>
 
-                <button 
+                <button
                   onClick={nextStage}
                   className="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
@@ -370,12 +391,12 @@ export default function App() {
                 <Skull className="w-20 h-20 text-red-500 mx-auto mb-6" />
                 <h2 className="text-4xl font-black text-red-500 mb-2">部隊全滅</h2>
                 <p className="text-slate-400 mb-6">到達ステージ: <span className="text-white font-bold text-xl">{stage}</span></p>
-                
+
                 <p className="text-sm text-slate-500 mb-8 italic">
                   「彼らの犠牲は無駄にはならないだろう…」
                 </p>
 
-                <button 
+                <button
                   onClick={startGame}
                   className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >

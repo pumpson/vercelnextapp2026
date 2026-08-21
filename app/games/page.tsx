@@ -75,6 +75,36 @@ export default function GamesIndexPage() {
           <h2 className="text-2xl font-bold mb-2 group-hover:text-emerald-500 transition-colors">東京トレインすごろく</h2>
           <p className="text-gray-400 flex-grow">東京の地下鉄やJRを舞台にした鉄道すごろくゲーム。目的地を目指して資産を増やそう。</p>
         </Link>
+
+        <Link href="/games/rpg-squad-battler" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-yellow-400 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">🛡️</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-yellow-300 transition-colors">RPG Squad Battler</h2>
+          <p className="text-gray-400 flex-grow">個性豊かな役職とスキルを持つキャラ達が織りなすエンドレス総力戦RPG。部隊を率いて生き残れ。</p>
+        </Link>
+
+        <Link href="/games/auto-battler" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-orange-500 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">⚔️</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-orange-400 transition-colors">Auto Battler</h2>
+          <p className="text-gray-400 flex-grow">30対30のキャラクターが戦う総力戦戦争ゲーム。ステータスがバラバラなキャラを指揮してステージをクリアしよう。</p>
+        </Link>
+
+        <Link href="/games/cafe-detective" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-purple-500 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">☕</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-purple-400 transition-colors">Cafe Detective</h2>
+          <p className="text-gray-400 flex-grow">深夜のカフェを舞台にした推理アドベンチャー。探偵と常連客と織りなす怪盗三毛猫事件。</p>
+        </Link>
+
+        <Link href="/games/stickman-line-wars" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-pink-500 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">🤺</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-pink-400 transition-colors">Stickman Line Wars</h2>
+          <p className="text-gray-400 flex-grow">資金を使ってユニットを召喚し、敵の拠点を破壊するラインディフェンスゲーム。</p>
+        </Link>
+
+        <Link href="/games/supply-squad" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-emerald-400 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">📦</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-emerald-300 transition-colors">Supply Squad</h2>
+          <p className="text-gray-400 flex-grow">味方の兵士をタップして弾薬を補給し、迫りくる敵から拠点を守り抜くシミュレーター。</p>
+        </Link>
       </div>
     </div>
   );
