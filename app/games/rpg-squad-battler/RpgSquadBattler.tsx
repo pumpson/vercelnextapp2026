@@ -26,15 +26,21 @@ const generateName = () => {
     return first + last;
 };
 
-// 役職の定義
+// 役職の定義（weight: 出現確率の重み。一般職:100, 上級職:20, 超上級職:3〜5程度）
 const JOBS = [
-    { id: 'SWORDSMAN', name: '剣士', damageType: 'physical', hpMod: 1.3, atkMod: 1.5, mAtkMod: 0.1, defMod: 1.1, mDefMod: 0.8, spdMod: 1.3, range: 30, color: '#4facfe', growth: { hp: 12, atk: 5, mAtk: 0, def: 2, mDef: 1, spd: 1 } },
-    { id: 'HEAVY_ARMOR', name: '重装備兵', damageType: 'physical', hpMod: 2.0, atkMod: 1.0, mAtkMod: 0.1, defMod: 2.0, mDefMod: 0.5, spdMod: 0.6, range: 35, color: '#43e97b', growth: { hp: 25, atk: 3, mAtk: 0, def: 4, mDef: 0, spd: 0.5 } },
-    { id: 'ARCHER', name: '弓使い', damageType: 'physical', hpMod: 0.8, atkMod: 1.1, mAtkMod: 0.3, defMod: 0.7, mDefMod: 0.9, spdMod: 1.5, range: 150, color: '#00f2fe', growth: { hp: 6, atk: 2, mAtk: 0, def: 1, mDef: 1, spd: 2 } },
-    { id: 'MAGE', name: '魔導士', damageType: 'magical', hpMod: 0.7, atkMod: 0.2, mAtkMod: 1.8, defMod: 0.5, mDefMod: 1.5, spdMod: 0.9, range: 120, color: '#b224ef', growth: { hp: 5, atk: 0, mAtk: 5, def: 0.5, mDef: 3, spd: 1 } },
-    { id: 'SORCERER', name: '大魔導士', damageType: 'magical', hpMod: 0.6, atkMod: 0.1, mAtkMod: 2.5, defMod: 0.4, mDefMod: 2.0, spdMod: 0.8, range: 140, color: '#d500f9', growth: { hp: 4, atk: 0, mAtk: 7, def: 0.2, mDef: 4, spd: 0.8 } },
-    { id: 'MAGIC_SWORDSMAN', name: '魔法剣士', damageType: 'physical', hpMod: 1.1, atkMod: 1.2, mAtkMod: 1.2, defMod: 1.0, mDefMod: 1.0, spdMod: 1.1, range: 30, color: '#8e24aa', growth: { hp: 10, atk: 3, mAtk: 3, def: 1, mDef: 1, spd: 1 } },
-    { id: 'CLERIC', name: '僧侶', damageType: 'magical', hpMod: 0.9, atkMod: 0.1, mAtkMod: 0.8, defMod: 0.9, mDefMod: 1.2, spdMod: 1.0, range: 100, color: '#fddb92', growth: { hp: 8, atk: 0, mAtk: 2, def: 1, mDef: 2, spd: 1 } } // 回復役
+    { id: 'SWORDSMAN', name: '剣士', weight: 100, damageType: 'physical', hpMod: 1.3, atkMod: 1.5, mAtkMod: 0.1, defMod: 1.1, mDefMod: 0.8, spdMod: 1.3, range: 30, color: '#4facfe', growth: { hp: 12, atk: 5, mAtk: 0, def: 2, mDef: 1, spd: 1 } },
+    { id: 'HEAVY_ARMOR', name: '重装備兵', weight: 100, damageType: 'physical', hpMod: 2.0, atkMod: 1.0, mAtkMod: 0.1, defMod: 2.0, mDefMod: 0.5, spdMod: 0.6, range: 35, color: '#43e97b', growth: { hp: 25, atk: 3, mAtk: 0, def: 4, mDef: 0, spd: 0.5 } },
+    { id: 'ARCHER', name: '弓使い', weight: 100, damageType: 'physical', hpMod: 0.8, atkMod: 1.1, mAtkMod: 0.3, defMod: 0.7, mDefMod: 0.9, spdMod: 1.5, range: 150, color: '#00f2fe', growth: { hp: 6, atk: 2, mAtk: 0, def: 1, mDef: 1, spd: 2 } },
+    { id: 'MAGE', name: '魔導士', weight: 100, damageType: 'magical', hpMod: 0.7, atkMod: 0.2, mAtkMod: 1.8, defMod: 0.5, mDefMod: 1.5, spdMod: 0.9, range: 120, color: '#b224ef', growth: { hp: 5, atk: 0, mAtk: 5, def: 0.5, mDef: 3, spd: 1 } },
+    { id: 'CLERIC', name: '僧侶', weight: 100, damageType: 'magical', hpMod: 0.9, atkMod: 0.1, mAtkMod: 0.8, defMod: 0.9, mDefMod: 1.2, spdMod: 1.0, range: 100, color: '#fddb92', growth: { hp: 8, atk: 0, mAtk: 2, def: 1, mDef: 2, spd: 1 } },
+    // 上級職
+    { id: 'SORCERER', name: '大魔導士', weight: 20, damageType: 'magical', hpMod: 0.6, atkMod: 0.1, mAtkMod: 2.5, defMod: 0.4, mDefMod: 2.0, spdMod: 0.8, range: 140, color: '#d500f9', growth: { hp: 4, atk: 0, mAtk: 7, def: 0.2, mDef: 4, spd: 0.8 } },
+    { id: 'MAGIC_SWORDSMAN', name: '魔法剣士', weight: 20, damageType: 'physical', hpMod: 1.1, atkMod: 1.2, mAtkMod: 1.2, defMod: 1.0, mDefMod: 1.0, spdMod: 1.1, range: 30, color: '#8e24aa', growth: { hp: 10, atk: 3, mAtk: 3, def: 1, mDef: 1, spd: 1 } },
+    { id: 'PALADIN', name: '聖騎士', weight: 20, damageType: 'physical', hpMod: 1.8, atkMod: 1.2, mAtkMod: 0.8, defMod: 1.5, mDefMod: 1.5, spdMod: 0.9, range: 30, color: '#ffb74d', growth: { hp: 20, atk: 4, mAtk: 2, def: 3, mDef: 3, spd: 0.8 } },
+    // 超上級職
+    { id: 'SWORD_MASTER', name: '剣聖', weight: 3, damageType: 'physical', hpMod: 1.5, atkMod: 2.5, mAtkMod: 0.1, defMod: 1.2, mDefMod: 1.0, spdMod: 2.0, range: 30, color: '#f44336', growth: { hp: 15, atk: 8, mAtk: 0, def: 2, mDef: 1, spd: 2 } },
+    { id: 'SNIPER', name: '狙撃手', weight: 3, damageType: 'physical', hpMod: 0.8, atkMod: 2.0, mAtkMod: 0.1, defMod: 0.5, mDefMod: 0.5, spdMod: 1.8, range: 250, color: '#00bcd4', growth: { hp: 6, atk: 7, mAtk: 0, def: 0.5, mDef: 0.5, spd: 1.5 } },
+    { id: 'HIGH_CLERIC', name: '司教', weight: 3, damageType: 'magical', hpMod: 1.0, atkMod: 0.1, mAtkMod: 1.5, defMod: 1.2, mDefMod: 1.8, spdMod: 1.2, range: 120, color: '#ffeb3b', growth: { hp: 10, atk: 0, mAtk: 5, def: 2, mDef: 3, spd: 1.2 } },
 ];
 
 const BOSS_JOBS = [
@@ -62,7 +68,7 @@ const SKILLS = [
     { id: 'LUCKY', name: '幸運', desc: '敵の攻撃を25%の確率で完全に回避する' },
     // 新規スキル
     { id: 'MAGIC_ECHO', name: '魔力反響', desc: '与える魔法ダメージが1.5倍になる' },
-    { id: 'FATAL_BLOW', name: '急所狙い', desc: 'クリティカル時のダメージ倍率が2.5倍から3.5倍になる' },
+    { id: 'FATAL_BLOW', name: '急所狙い', desc: 'クリティカル時のダメージ倍率が1.8倍から2.5倍になる' },
     { id: 'BERSERKER', name: '狂戦士', desc: '物理攻撃力が2倍になるが、物理・魔法防御力が半分になる' },
     { id: 'MAGIC_BARRIER', name: '魔法障壁', desc: '受ける魔法ダメージを半減する' },
     { id: 'IRON_WALL', name: '鉄壁', desc: '受ける物理ダメージを半減する' },
@@ -89,7 +95,21 @@ const generateCharacter = (isPlayer: boolean, stage: number, averageLevel: numbe
         }
     }
 
-    const job = isBoss ? BOSS_JOBS[Math.floor(Math.random() * BOSS_JOBS.length)] : JOBS[Math.floor(Math.random() * JOBS.length)];
+    let job;
+    if (isBoss) {
+        job = BOSS_JOBS[Math.floor(Math.random() * BOSS_JOBS.length)];
+    } else {
+        const totalWeight = JOBS.reduce((sum, j) => sum + j.weight, 0);
+        let randomWeight = Math.random() * totalWeight;
+        job = JOBS[0];
+        for (const j of JOBS) {
+            randomWeight -= j.weight;
+            if (randomWeight <= 0) {
+                job = j;
+                break;
+            }
+        }
+    }
     let skill = isPlayer ? SKILLS[Math.floor(Math.random() * SKILLS.length)] : null;
 
     // 僧侶以外がHOLY_PRAYERを引いた場合は、無意味なので引き直す（あるいはスキルなしにする。ここでは単純に引き直す）
@@ -431,17 +451,17 @@ export default function RpgSquadBattler() {
         // 描画
         drawBattle(s);
 
+        // 勝敗判定
+        const aliveP = s.players.filter(p => !p.isDead).length;
+        const aliveE = s.enemies.filter(e => !e.isDead).length;
+
         // UIの定期更新（0.5秒ごと）
         if (now - s.lastUiUpdateTime > 500) {
             s.lastUiUpdateTime = now;
             setPlayers([...s.players]);
             setEnemies([...s.enemies]);
+            setAliveEnemyCount(aliveE); // パフォーマンスのため定期更新時のみセット
         }
-
-        // 勝敗判定
-        const aliveP = s.players.filter(p => !p.isDead).length;
-        const aliveE = s.enemies.filter(e => !e.isDead).length;
-        setAliveEnemyCount(aliveE);
 
         if (aliveP === 0) {
             s.phase = 'gameover';
@@ -587,7 +607,7 @@ export default function RpgSquadBattler() {
         // クリティカル判定（基本2%）
         let isCrit = false;
         let critChance = 0.02;
-        let critMultiplier = 2.5;
+        let critMultiplier = 1.8;
 
         // スキル：会心
         if (attacker.skill?.id === 'CRITICAL') critChance += 0.15;
@@ -600,14 +620,19 @@ export default function RpgSquadBattler() {
 
         // スキル：急所狙い
         if (attacker.skill?.id === 'FATAL_BLOW') {
-            critMultiplier = 3.5;
+            critMultiplier = 2.5;
         }
 
         if (Math.random() < critChance) { // eslint-disable-line react-hooks/purity
-            // クリティカル時は防御力を無視した上でダメージ倍率を乗算
+            // クリティカル時は防御力を無視した上でダメージ倍率を乗算。ただしスキルによる倍率が消えないよう、rawDmgの元となった各種倍率も適用する。
+            // ここでは簡易的に rawDmg 算出時の防御力を還元してから倍率をかけるアプローチをとる。
             const isMagical = attacker.job.damageType === 'magical';
-            const rawAtkStat = isMagical ? (attacker.mAtk * attacker.battleMAtkMod) : (attacker.atk * attacker.battleAtkMod);
-            finalDmg = rawAtkStat * critMultiplier;
+            let defStat = isMagical ? target.mDef : target.def;
+            if (!isMagical && attacker.skill?.id === 'ARMOR_PIERCE') defStat = 0;
+            if (isMagical && target.skill?.id === 'MAGIC_BARRIER') defStat *= 2.0;
+
+            const baseDmgWithoutDef = rawDmg + defStat; // 防御減算前のダメージ
+            finalDmg = baseDmgWithoutDef * critMultiplier;
             isCrit = true;
         }
 
