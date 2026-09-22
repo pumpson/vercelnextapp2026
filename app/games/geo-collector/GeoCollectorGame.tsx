@@ -29,8 +29,13 @@ const OBJECT_TYPES: ObjectType[] = [
   { id: 'statue', icon: '🗽', names: ['石の像', 'ブロンズ像', '黄金の像'] },
   { id: 'flower', icon: '🌷', names: ['一輪の花', '美しい花壇', '天空の庭園'] },
   { id: 'crystal', icon: '💎', names: ['小さな結晶', '輝くクリスタル', '星のコア'] },
+  { id: 'star', icon: '⭐', names: ['星の欠片', '輝く星', '超新星'] },
+  { id: 'chest', icon: '📦', names: ['木の宝箱', '銀の宝箱', '伝説の宝箱'] },
+  { id: 'fountain', icon: '⛲', names: ['小さな泉', '美しい噴水', '命の泉'] },
+  { id: 'monument', icon: '🏛️', names: ['古い石碑', '立派な記念碑', '古代の遺跡'] },
 ];
-const SEARCH_RADIUS_M = 50;
+// ピンの設置間隔・検索半径
+const SEARCH_RADIUS_M = 300;
 const STORAGE_KEY = 'geo_objects_data';
 
 // === Helper Functions ===
@@ -92,6 +97,19 @@ export default function GeoCollectorGame() {
   const [isSearching, setIsSearching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAutoTracking, setIsAutoTracking] = useState(true);
+  const [isVehicleMode, setIsVehicleMode] = useState(false);
+  const lastActionPosRef = useRef<{lat: number, lng: number} | null>(null);
+  const objectsRef = useRef<GeoObject[]>([]);
+  const currentPosRef = useRef<{lat: number, lng: number} | null>(null);
+
+  // Sync refs for the vehicle mode interval
+  useEffect(() => {
+    objectsRef.current = objects;
+  }, [objects]);
+
+  useEffect(() => {
+    currentPosRef.current = currentPos;
+  }, [currentPos]);
 
   // Initialize and load data
   useEffect(() => {
@@ -111,6 +129,79 @@ export default function GeoCollectorGame() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(objects));
     }
   }, [objects]);
+
+  const showToast = (msg: string, duration = 3500) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), duration);
+  };
+
+  const performSearchAction = (isAuto = false) => {
+    // 乗り物モードなどの自動実行時は ref の値を使う
+    const pos = isAuto ? currentPosRef.current : currentPos;
+    if (!pos) return;
+
+    // アクション実行位置を記録
+    lastActionPosRef.current = { lat: pos.lat, lng: pos.lng };
+
+    let closestObj: GeoObject | null = null;
+    let minDistance = Infinity;
+
+    const currentObjects = isAuto ? objectsRef.current : objects;
+
+    currentObjects.forEach(obj => {
+      const dist = getDistance(pos.lat, pos.lng, obj.lat, obj.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestObj = obj;
+      }
+    });
+
+    const today = getTodayString();
+
+    if (closestObj && minDistance <= SEARCH_RADIUS_M) {
+      const targetObj = closestObj as GeoObject;
+      if (targetObj.lastVisitDate === today) {
+        if (!isAuto) showToast(`「${getObjectName(targetObj)}」は今日は訪問済みです。明日また来ましょう！`);
+      } else {
+        const updatedObj = { ...targetObj, visits: targetObj.visits + 1, lastVisitDate: today };
+        setObjects(prev => prev.map(o => o.id === updatedObj.id ? updatedObj : o));
+
+        let levelUpMsg = "";
+        if (updatedObj.visits === 5) levelUpMsg = " (レベル2に成長しました！)";
+        if (updatedObj.visits === 10) levelUpMsg = " (レベルMAXに成長しました！)";
+        showToast(`✨「${getObjectName(updatedObj)}」に訪問しました！${levelUpMsg}`);
+      }
+    } else {
+      const offsetLat = (Math.random() - 0.5) * 0.0002;
+      const offsetLng = (Math.random() - 0.5) * 0.0002;
+      const randomType = OBJECT_TYPES[Math.floor(Math.random() * OBJECT_TYPES.length)];
+
+      const newObj: GeoObject = {
+        id: Date.now().toString(),
+        lat: pos.lat + offsetLat,
+        lng: pos.lng + offsetLng,
+        typeId: randomType.id,
+        visits: 1,
+        lastVisitDate: today
+      };
+
+      setObjects(prev => [...prev, newObj]);
+      showToast(`🎉 新しい「${getObjectName(newObj)}」を設置しました！`);
+    }
+  };
+
+  const handleSearch = () => {
+    if (!currentPos) {
+      showToast("現在地を取得中です。少しお待ちください。");
+      return;
+    }
+
+    setIsSearching(true);
+    setTimeout(() => {
+      performSearchAction();
+      setIsSearching(false);
+    }, 800);
+  };
 
   // Watch position
   useEffect(() => {
@@ -138,71 +229,30 @@ export default function GeoCollectorGame() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  const showToast = (msg: string, duration = 3500) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), duration);
-  };
+  // Vehicle Mode Logic
+  useEffect(() => {
+    if (!isVehicleMode) return;
 
-  const handleSearch = () => {
-    if (!currentPos) {
-      showToast("現在地を取得中です。少しお待ちください。");
-      return;
-    }
+    const intervalId = setInterval(() => {
+      const pos = currentPosRef.current;
+      if (!pos) return;
 
-    setIsSearching(true);
-    setTimeout(() => {
-      performSearchAction();
-      setIsSearching(false);
-    }, 800);
-  };
-
-  const performSearchAction = () => {
-    if (!currentPos) return;
-
-    let closestObj: GeoObject | null = null;
-    let minDistance = Infinity;
-
-    objects.forEach(obj => {
-      const dist = getDistance(currentPos.lat, currentPos.lng, obj.lat, obj.lng);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestObj = obj;
-      }
-    });
-
-    const today = getTodayString();
-
-    if (closestObj && minDistance <= SEARCH_RADIUS_M) {
-      const targetObj = closestObj as GeoObject;
-      if (targetObj.lastVisitDate === today) {
-        showToast(`「${getObjectName(targetObj)}」は今日は訪問済みです。明日また来ましょう！`);
+      const lastPos = lastActionPosRef.current;
+      if (lastPos) {
+        const dist = getDistance(pos.lat, pos.lng, lastPos.lat, lastPos.lng);
+        // 前回のアクション場所から SEARCH_RADIUS_M (300m) 以上離れていれば自動アクション
+        if (dist >= SEARCH_RADIUS_M) {
+          performSearchAction(true);
+        }
       } else {
-        const updatedObj = { ...targetObj, visits: targetObj.visits + 1, lastVisitDate: today };
-        setObjects(prev => prev.map(o => o.id === updatedObj.id ? updatedObj : o));
-
-        let levelUpMsg = "";
-        if (updatedObj.visits === 5) levelUpMsg = " (レベル2に成長しました！)";
-        if (updatedObj.visits === 10) levelUpMsg = " (レベルMAXに成長しました！)";
-        showToast(`✨「${getObjectName(updatedObj)}」に訪問しました！${levelUpMsg}`);
+        // 初回は無条件で実行
+        performSearchAction(true);
       }
-    } else {
-      const offsetLat = (Math.random() - 0.5) * 0.0002;
-      const offsetLng = (Math.random() - 0.5) * 0.0002;
-      const randomType = OBJECT_TYPES[Math.floor(Math.random() * OBJECT_TYPES.length)];
+    }, 10000); // 10秒ごとにチェック
 
-      const newObj: GeoObject = {
-        id: Date.now().toString(),
-        lat: currentPos.lat + offsetLat,
-        lng: currentPos.lng + offsetLng,
-        typeId: randomType.id,
-        visits: 1,
-        lastVisitDate: today
-      };
-
-      setObjects(prev => [...prev, newObj]);
-      showToast(`🎉 新しい「${getObjectName(newObj)}」を設置しました！`);
-    }
-  };
+    return () => clearInterval(intervalId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVehicleMode]);
 
   const mapCenter: L.LatLngExpression = currentPos ? [currentPos.lat, currentPos.lng] : [35.6812, 139.7671];
 
@@ -271,6 +321,23 @@ export default function GeoCollectorGame() {
           <span>{objects.length}</span>
           <span className="text-sm text-gray-400">個</span>
         </div>
+      </div>
+
+      {/* Vehicle Mode Toggle */}
+      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-xl p-3 shadow-lg border border-gray-200 z-[1000] flex items-center gap-3">
+        <span className="text-sm font-bold text-gray-700">乗り物モード</span>
+        <button
+          onClick={() => setIsVehicleMode(!isVehicleMode)}
+          className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${
+            isVehicleMode ? 'bg-blue-500' : 'bg-gray-300'
+          }`}
+        >
+          <div
+            className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${
+              isVehicleMode ? 'transform translate-x-6' : ''
+            }`}
+          />
+        </button>
       </div>
 
       {/* Recenter Button */}

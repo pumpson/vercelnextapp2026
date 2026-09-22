@@ -45,6 +45,9 @@ export default function RootLayout({
               <Link href="/games/walkingfield" className="text-green-400 hover:text-green-300 flex-shrink-0 font-bold">
                 WalkingField
               </Link>
+              <Link href="/games/geo-collector" className="text-teal-400 hover:text-teal-300 flex-shrink-0 font-bold">
+                Geo Collector
+              </Link>
               <Link href="/todo-pomodoro" className="hover:text-indigo-400 flex-shrink-0 font-bold">
                 Todo & Pomodoro
               </Link>

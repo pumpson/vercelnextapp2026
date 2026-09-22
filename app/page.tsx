@@ -31,6 +31,12 @@ export default function Home() {
           <h2 className="text-2xl font-bold mb-2 group-hover:text-pink-400 transition-colors">Sketchpad</h2>
           <p className="text-gray-400">いつでもどこでも描ける、シンプルな絵描きツール。</p>
         </Link>
+
+        <Link href="/games/geo-collector" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-green-600 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">🗺️</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-green-500 transition-colors">Geo Collector</h2>
+          <p className="text-gray-400 flex-grow">現実の位置情報（GPS）を使ってマップ上のオブジェを集めるゲーム。</p>
+        </Link>
       </div>
 
       <footer className="mt-16 text-gray-500 text-sm">
