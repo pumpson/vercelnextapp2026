@@ -37,6 +37,12 @@ export default function Home() {
           <h2 className="text-2xl font-bold mb-2 group-hover:text-green-500 transition-colors">Geo Collector</h2>
           <p className="text-gray-400 flex-grow">現実の位置情報（GPS）を使ってマップ上のオブジェを集めるゲーム。</p>
         </Link>
+
+        <Link href="/train-journey-tracker" className="group p-8 bg-gray-800 rounded-3xl border border-gray-700 hover:border-blue-500 transition-all hover:scale-105 shadow-xl flex flex-col">
+          <div className="text-4xl mb-4">🚆</div>
+          <h2 className="text-2xl font-bold mb-2 group-hover:text-blue-400 transition-colors">Train Tracker</h2>
+          <p className="text-gray-400 flex-grow">乗り放題パスの旅程と運賃を記録し、元が取れたかを可視化するアプリ。</p>
+        </Link>
       </div>
 
       <footer className="mt-16 text-gray-500 text-sm">
