@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, Navigation } from 'lucide-react';
+import { Search, Navigation, List, X, MapPin, Download, Upload, Settings } from 'lucide-react';
 
 // === Type Definitions ===
 interface ObjectType {
@@ -20,6 +20,8 @@ interface GeoObject {
   typeId: string;
   visits: number;
   lastVisitDate: string;
+  // 初回アクセス日時を追加（既存データには存在しない場合があるためオプショナル）
+  firstVisitDate?: string;
 }
 
 // === Constants ===
@@ -72,13 +74,40 @@ function getObjectName(obj: GeoObject) {
 }
 
 // === Map Components ===
-function MapController({ center, isAutoTracking, onDrag }: { center: L.LatLngExpression | null, isAutoTracking: boolean, onDrag: () => void }) {
-  const map = useMap();
+
+// Markerをラップして、targetPinIdと一致した際にポップアップを自動で開くコンポーネント
+function MarkerWithAutoPopup({ obj, icon, targetPinId, children }: { obj: GeoObject, icon: L.DivIcon, targetPinId: string | null, children: React.ReactNode }) {
+  const markerRef = useRef<L.Marker>(null);
+
   useEffect(() => {
-    if (center && isAutoTracking) {
+    if (targetPinId === obj.id && markerRef.current) {
+      markerRef.current.openPopup();
+    }
+  }, [targetPinId, obj.id]);
+
+  return (
+    <Marker ref={markerRef} position={[obj.lat, obj.lng]} icon={icon}>
+      {children}
+    </Marker>
+  );
+}
+
+function MapController({ center, isAutoTracking, onDrag, targetObj }: { center: L.LatLngExpression | null, isAutoTracking: boolean, onDrag: () => void, targetObj: GeoObject | null }) {
+  const map = useMap();
+
+  // 自動追尾時の動き
+  useEffect(() => {
+    if (center && isAutoTracking && !targetObj) {
       map.setView(center, map.getZoom(), { animate: true });
     }
-  }, [center, isAutoTracking, map]);
+  }, [center, isAutoTracking, map, targetObj]);
+
+  // 特定のピンが選択されたときのジャンプ処理
+  useEffect(() => {
+    if (targetObj) {
+      map.setView([targetObj.lat, targetObj.lng], 18, { animate: true });
+    }
+  }, [targetObj, map]);
 
   useEffect(() => {
     map.on('dragstart', onDrag);
@@ -94,13 +123,91 @@ function MapController({ center, isAutoTracking, onDrag }: { center: L.LatLngExp
 export default function GeoCollectorGame() {
   const [objects, setObjects] = useState<GeoObject[]>([]);
   const [currentPos, setCurrentPos] = useState<{lat: number, lng: number} | null>(null);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+
+  // 地図上で特定のピンを開くための参照状態
+  const [targetPinId, setTargetPinId] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAutoTracking, setIsAutoTracking] = useState(true);
   const [isVehicleMode, setIsVehicleMode] = useState(false);
+
+  // Settings Mode
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isWakeLockEnabled, setIsWakeLockEnabled] = useState(true);
+  // @ts-ignore
+  const wakeLockRef = useRef<any>(null);
+
   const lastActionPosRef = useRef<{lat: number, lng: number} | null>(null);
   const objectsRef = useRef<GeoObject[]>([]);
   const currentPosRef = useRef<{lat: number, lng: number} | null>(null);
+
+  // Wake Lock の状態を localStorage から復元
+  useEffect(() => {
+    const storedWakeLock = localStorage.getItem('geo_collector_wake_lock');
+    if (storedWakeLock !== null) {
+      setIsWakeLockEnabled(storedWakeLock === 'true');
+    }
+  }, []);
+
+  // Wake Lock の取得と解放のロジック
+  useEffect(() => {
+    let isMounted = true;
+
+    const requestWakeLock = async () => {
+      if (isWakeLockEnabled && 'wakeLock' in navigator) {
+        try {
+          if (!wakeLockRef.current) {
+            // @ts-ignore
+            wakeLockRef.current = await navigator.wakeLock.request('screen');
+            wakeLockRef.current.addEventListener('release', () => {
+              if (isMounted) wakeLockRef.current = null;
+            });
+          }
+        } catch (err: any) {
+          console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+        }
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch (err: any) {
+          console.error(`Wake Lock release error: ${err.name}, ${err.message}`);
+        }
+      }
+    };
+
+    if (isWakeLockEnabled) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    // タブが裏に回ったあと、戻ってきた時に再取得するためのイベントリスナー
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isWakeLockEnabled) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [isWakeLockEnabled]);
+
+  const toggleWakeLock = () => {
+    const newValue = !isWakeLockEnabled;
+    setIsWakeLockEnabled(newValue);
+    localStorage.setItem('geo_collector_wake_lock', String(newValue));
+  };
 
   // Sync refs for the vehicle mode interval
   useEffect(() => {
@@ -116,7 +223,17 @@ export default function GeoCollectorGame() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        setObjects(JSON.parse(saved));
+        const parsed: GeoObject[] = JSON.parse(saved);
+        // バックフィル: 既存のデータに firstVisitDate がない場合、lastVisitDate を代入する
+        // (Backfill: assign lastVisitDate to firstVisitDate if missing on existing data)
+        const backfilled = parsed.map(obj => {
+          if (!obj.firstVisitDate) {
+            return { ...obj, firstVisitDate: obj.lastVisitDate };
+          }
+          return obj;
+        });
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setObjects(backfilled);
       } catch (e) {
         console.error("Failed to parse saved objects", e);
       }
@@ -182,7 +299,9 @@ export default function GeoCollectorGame() {
         lng: pos.lng + offsetLng,
         typeId: randomType.id,
         visits: 1,
-        lastVisitDate: today
+        lastVisitDate: today,
+        // 新規設置時は初回アクセス日時として今日の日付を設定
+        firstVisitDate: today
       };
 
       setObjects(prev => [...prev, newObj]);
@@ -206,6 +325,7 @@ export default function GeoCollectorGame() {
   // Watch position
   useEffect(() => {
     if (!('geolocation' in navigator)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       showToast("お使いのブラウザは位置情報に対応していません");
       return;
     }
@@ -229,7 +349,9 @@ export default function GeoCollectorGame() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // Vehicle Mode Logic
+  // Vehicle Mode Logic (乗り物モードのロジック)
+  // 乗り物モードがオンの場合、10秒ごとに現在地をチェックし、
+  // 前回のアクション場所（ピン設置や訪問）から300m以上離れていれば自動で周囲を探索（ピン設置）する。
   useEffect(() => {
     if (!isVehicleMode) return;
 
@@ -241,11 +363,12 @@ export default function GeoCollectorGame() {
       if (lastPos) {
         const dist = getDistance(pos.lat, pos.lng, lastPos.lat, lastPos.lng);
         // 前回のアクション場所から SEARCH_RADIUS_M (300m) 以上離れていれば自動アクション
+        // これにより、移動中（乗り物乗車時など）に定期的にピンが刺される仕様が実現されている
         if (dist >= SEARCH_RADIUS_M) {
           performSearchAction(true);
         }
       } else {
-        // 初回は無条件で実行
+        // 初回（まだ一度もアクションが実行されていない場合）は無条件で実行
         performSearchAction(true);
       }
     }, 10000); // 10秒ごとにチェック
@@ -255,6 +378,76 @@ export default function GeoCollectorGame() {
   }, [isVehicleMode]);
 
   const mapCenter: L.LatLngExpression = currentPos ? [currentPos.lat, currentPos.lng] : [35.6812, 139.7671];
+
+  const handleJumpToPin = (obj: GeoObject) => {
+    setIsListModalOpen(false);
+    setIsAutoTracking(false);
+    setTargetPinId(obj.id);
+  };
+
+  // JSON形式でデータをエクスポートする機能
+  const handleExport = () => {
+    const dataStr = JSON.stringify(objects, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `geocollector-backup-${getTodayString()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast("バックアップデータをダウンロードしました");
+  };
+
+  // JSONファイルを読み込んでデータを上書きインポートする機能
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleImportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+
+        // 簡単なバリデーション (配列であり、少なくともid, lat, lngプロパティがあるか確認)
+        if (!Array.isArray(parsed) || (parsed.length > 0 && (!parsed[0].id || typeof parsed[0].lat !== 'number'))) {
+          throw new Error("Invalid format");
+        }
+
+        setObjects(parsed);
+        showToast("バックアップデータを復元しました");
+        setIsListModalOpen(false);
+      } catch (error) {
+        console.error("Failed to parse import data", error);
+        showToast("無効なファイル形式です");
+      }
+
+      // 同じファイルを再度選択できるようにクリアする
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const getSortedObjects = () => {
+    // 最終訪問日時が新しい順にソート（文字列比較でOKなYYYY-MM-DD想定。もし同じならIDで安定させる）
+    return [...objects].sort((a, b) => {
+      if (a.lastVisitDate === b.lastVisitDate) {
+        return b.id.localeCompare(a.id);
+      }
+      return b.lastVisitDate.localeCompare(a.lastVisitDate);
+    });
+  };
 
   // Creates custom DivIcons
   const createUserIcon = () => {
@@ -294,29 +487,49 @@ export default function GeoCollectorGame() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <MapController center={currentPos ? [currentPos.lat, currentPos.lng] : null} isAutoTracking={isAutoTracking} onDrag={() => setIsAutoTracking(false)} />
+        <MapController
+          center={currentPos ? [currentPos.lat, currentPos.lng] : null}
+          isAutoTracking={isAutoTracking}
+          onDrag={() => setIsAutoTracking(false)}
+          targetObj={targetPinId ? objects.find(o => o.id === targetPinId) || null : null}
+        />
 
         {currentPos && (
           <Marker position={[currentPos.lat, currentPos.lng]} icon={createUserIcon()} zIndexOffset={1000} />
         )}
 
         {objects.map(obj => (
-          <Marker key={obj.id} position={[obj.lat, obj.lng]} icon={createObjectIcon(obj)}>
+          <MarkerWithAutoPopup key={obj.id} obj={obj} icon={createObjectIcon(obj)} targetPinId={targetPinId}>
             <Popup>
               <div className="text-center p-1 min-w-[120px]">
                 <div className="text-3xl mb-1">{getObjectType(obj.typeId).icon}</div>
                 <div className="font-bold text-gray-800 text-base">{getObjectName(obj)}</div>
                 <div className="text-xs text-blue-600 font-bold mt-1">訪問回数: {obj.visits}回</div>
+                {/* 既存データで初回アクセス日時がない場合は最終訪問日時をフォールバックとして表示 */}
+                <div className="text-xs text-gray-500 mt-1">初回訪問: {obj.firstVisitDate || obj.lastVisitDate}</div>
                 <div className="text-xs text-gray-500 mt-1">最終訪問: {obj.lastVisitDate}</div>
               </div>
             </Popup>
-          </Marker>
+          </MarkerWithAutoPopup>
         ))}
       </MapContainer>
 
+      {/* Settings Button */}
+      <div
+        className="absolute top-24 right-4 bg-white/90 backdrop-blur rounded-xl p-3 shadow-lg border border-gray-200 z-[1000] flex items-center justify-center cursor-pointer hover:bg-gray-50 active:scale-95 transition-all text-gray-700"
+        onClick={() => setIsSettingsModalOpen(true)}
+      >
+        <Settings size={20} />
+      </div>
+
       {/* Stats UI */}
-      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-xl p-3 shadow-lg border border-gray-200 z-[1000] flex flex-col items-center">
-        <div className="text-xs text-gray-500 font-bold mb-1">コレクション</div>
+      <div
+        className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-xl p-3 shadow-lg border border-gray-200 z-[1000] flex flex-col items-center cursor-pointer hover:bg-gray-50 active:scale-95 transition-all"
+        onClick={() => setIsListModalOpen(true)}
+      >
+        <div className="flex items-center gap-2 text-xs text-gray-500 font-bold mb-1 border-b pb-1">
+          <List size={14} /> コレクション一覧
+        </div>
         <div className="text-2xl font-black text-blue-600 flex items-center gap-1">
           <span>{objects.length}</span>
           <span className="text-sm text-gray-400">個</span>
@@ -381,6 +594,142 @@ export default function GeoCollectorGame() {
           {toastMessage}
         </div>
       </div>
+
+      {/* Collection List Modal */}
+      {isListModalOpen && (
+        <div className="absolute inset-0 z-[2000] bg-black/50 flex flex-col items-center justify-end sm:justify-center p-4 sm:p-6 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md h-[80vh] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 shrink-0">
+              <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                <List className="text-blue-500" />
+                獲得コレクション
+              </h2>
+              <button
+                onClick={() => setIsListModalOpen(false)}
+                className="p-2 bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+
+
+            <div className="overflow-y-auto p-4 flex-1 space-y-3 bg-gray-50">
+              {objects.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-3">
+                  <MapPin size={48} className="opacity-20" />
+                  <p className="font-bold">まだコレクションがありません</p>
+                </div>
+              ) : (
+                getSortedObjects().map(obj => (
+                  <div key={obj.id} className="bg-white border border-gray-100 p-4 rounded-2xl shadow-sm flex flex-col gap-3 transition-transform hover:shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="text-3xl bg-blue-50 w-12 h-12 rounded-full flex items-center justify-center">
+                        {getObjectType(obj.typeId).icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-gray-800 truncate">{getObjectName(obj)}</div>
+                        <div className="text-[10px] text-gray-400 font-mono mt-0.5 truncate">
+                          緯度: {obj.lat.toFixed(6)}, 経度: {obj.lng.toFixed(6)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-xs">
+                      <div>
+                        <span className="text-gray-400 block mb-0.5">訪問回数</span>
+                        <span className="font-bold text-blue-600">{obj.visits}回</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block mb-0.5">最終訪問</span>
+                        <span className="font-bold text-gray-700">{obj.lastVisitDate}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleJumpToPin(obj)}
+                      className="w-full mt-1 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                    >
+                      <MapPin size={16} />
+                      地図で見る
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Settings Modal */}
+      {isSettingsModalOpen && (
+        <div className="absolute inset-0 z-[2000] bg-black/50 flex flex-col items-center justify-end sm:justify-center p-4 sm:p-6 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 shrink-0">
+              <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                <Settings className="text-gray-500" />
+                設定
+              </h2>
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="p-2 bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-6">
+              {/* Wake Lock Toggle */}
+              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <div>
+                  <div className="font-bold text-gray-800 text-sm">画面スリープを防止</div>
+                  <div className="text-xs text-gray-500 mt-1">アプリ起動中は画面が暗くなるのを防ぎます</div>
+                </div>
+                <button
+                  onClick={toggleWakeLock}
+                  className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${
+                    isWakeLockEnabled ? 'bg-blue-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${
+                      isWakeLockEnabled ? 'transform translate-x-6' : ''
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Data Management */}
+              <div>
+                <div className="font-bold text-gray-800 text-sm mb-3">データ管理</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleExport}
+                    className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs shadow-sm"
+                  >
+                    <Download size={16} />
+                    エクスポート
+                  </button>
+                  <button
+                    onClick={handleImportClick}
+                    className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs shadow-sm"
+                  >
+                    <Upload size={16} />
+                    インポート
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImportChange}
+                    accept=".json"
+                    className="hidden"
+                  />
+                </div>
+                <div className="text-xs text-gray-400 mt-2">※インポートを行うと現在のデータは上書きされます</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
