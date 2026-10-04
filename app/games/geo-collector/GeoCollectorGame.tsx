@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, Navigation, List, X, MapPin, Download, Upload } from 'lucide-react';
+import { Search, Navigation, List, X, MapPin, Download, Upload, Settings } from 'lucide-react';
 
 // === Type Definitions ===
 interface ObjectType {
@@ -131,9 +131,83 @@ export default function GeoCollectorGame() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAutoTracking, setIsAutoTracking] = useState(true);
   const [isVehicleMode, setIsVehicleMode] = useState(false);
+
+  // Settings Mode
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isWakeLockEnabled, setIsWakeLockEnabled] = useState(true);
+  // @ts-ignore
+  const wakeLockRef = useRef<any>(null);
+
   const lastActionPosRef = useRef<{lat: number, lng: number} | null>(null);
   const objectsRef = useRef<GeoObject[]>([]);
   const currentPosRef = useRef<{lat: number, lng: number} | null>(null);
+
+  // Wake Lock の状態を localStorage から復元
+  useEffect(() => {
+    const storedWakeLock = localStorage.getItem('geo_collector_wake_lock');
+    if (storedWakeLock !== null) {
+      setIsWakeLockEnabled(storedWakeLock === 'true');
+    }
+  }, []);
+
+  // Wake Lock の取得と解放のロジック
+  useEffect(() => {
+    let isMounted = true;
+
+    const requestWakeLock = async () => {
+      if (isWakeLockEnabled && 'wakeLock' in navigator) {
+        try {
+          if (!wakeLockRef.current) {
+            // @ts-ignore
+            wakeLockRef.current = await navigator.wakeLock.request('screen');
+            wakeLockRef.current.addEventListener('release', () => {
+              if (isMounted) wakeLockRef.current = null;
+            });
+          }
+        } catch (err: any) {
+          console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+        }
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch (err: any) {
+          console.error(`Wake Lock release error: ${err.name}, ${err.message}`);
+        }
+      }
+    };
+
+    if (isWakeLockEnabled) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    // タブが裏に回ったあと、戻ってきた時に再取得するためのイベントリスナー
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isWakeLockEnabled) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [isWakeLockEnabled]);
+
+  const toggleWakeLock = () => {
+    const newValue = !isWakeLockEnabled;
+    setIsWakeLockEnabled(newValue);
+    localStorage.setItem('geo_collector_wake_lock', String(newValue));
+  };
 
   // Sync refs for the vehicle mode interval
   useEffect(() => {
@@ -440,6 +514,14 @@ export default function GeoCollectorGame() {
         ))}
       </MapContainer>
 
+      {/* Settings Button */}
+      <div
+        className="absolute top-24 right-4 bg-white/90 backdrop-blur rounded-xl p-3 shadow-lg border border-gray-200 z-[1000] flex items-center justify-center cursor-pointer hover:bg-gray-50 active:scale-95 transition-all text-gray-700"
+        onClick={() => setIsSettingsModalOpen(true)}
+      >
+        <Settings size={20} />
+      </div>
+
       {/* Stats UI */}
       <div
         className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-xl p-3 shadow-lg border border-gray-200 z-[1000] flex flex-col items-center cursor-pointer hover:bg-gray-50 active:scale-95 transition-all"
@@ -530,29 +612,7 @@ export default function GeoCollectorGame() {
               </button>
             </div>
 
-            <div className="px-5 py-3 bg-white border-b border-gray-100 flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleExport}
-                className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs shadow-sm"
-              >
-                <Download size={14} />
-                エクスポート
-              </button>
-              <button
-                onClick={handleImportClick}
-                className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 transition-colors text-xs shadow-sm"
-              >
-                <Upload size={14} />
-                インポート (上書き)
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImportChange}
-                accept=".json"
-                className="hidden"
-              />
-            </div>
+
 
             <div className="overflow-y-auto p-4 flex-1 space-y-3 bg-gray-50">
               {objects.length === 0 ? (
@@ -596,6 +656,76 @@ export default function GeoCollectorGame() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Settings Modal */}
+      {isSettingsModalOpen && (
+        <div className="absolute inset-0 z-[2000] bg-black/50 flex flex-col items-center justify-end sm:justify-center p-4 sm:p-6 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 shrink-0">
+              <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                <Settings className="text-gray-500" />
+                設定
+              </h2>
+              <button
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="p-2 bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-6">
+              {/* Wake Lock Toggle */}
+              <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <div>
+                  <div className="font-bold text-gray-800 text-sm">画面スリープを防止</div>
+                  <div className="text-xs text-gray-500 mt-1">アプリ起動中は画面が暗くなるのを防ぎます</div>
+                </div>
+                <button
+                  onClick={toggleWakeLock}
+                  className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${
+                    isWakeLockEnabled ? 'bg-blue-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${
+                      isWakeLockEnabled ? 'transform translate-x-6' : ''
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Data Management */}
+              <div>
+                <div className="font-bold text-gray-800 text-sm mb-3">データ管理</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleExport}
+                    className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs shadow-sm"
+                  >
+                    <Download size={16} />
+                    エクスポート
+                  </button>
+                  <button
+                    onClick={handleImportClick}
+                    className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs shadow-sm"
+                  >
+                    <Upload size={16} />
+                    インポート
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImportChange}
+                    accept=".json"
+                    className="hidden"
+                  />
+                </div>
+                <div className="text-xs text-gray-400 mt-2">※インポートを行うと現在のデータは上書きされます</div>
+              </div>
             </div>
           </div>
         </div>
