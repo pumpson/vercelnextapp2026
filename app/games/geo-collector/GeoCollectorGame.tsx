@@ -20,6 +20,8 @@ interface GeoObject {
   typeId: string;
   visits: number;
   lastVisitDate: string;
+  // 初回アクセス日時を追加（既存データには存在しない場合があるためオプショナル）
+  firstVisitDate?: string;
 }
 
 // === Constants ===
@@ -116,7 +118,17 @@ export default function GeoCollectorGame() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        setObjects(JSON.parse(saved));
+        const parsed: GeoObject[] = JSON.parse(saved);
+        // バックフィル: 既存のデータに firstVisitDate がない場合、lastVisitDate を代入する
+        // (Backfill: assign lastVisitDate to firstVisitDate if missing on existing data)
+        const backfilled = parsed.map(obj => {
+          if (!obj.firstVisitDate) {
+            return { ...obj, firstVisitDate: obj.lastVisitDate };
+          }
+          return obj;
+        });
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setObjects(backfilled);
       } catch (e) {
         console.error("Failed to parse saved objects", e);
       }
@@ -182,7 +194,9 @@ export default function GeoCollectorGame() {
         lng: pos.lng + offsetLng,
         typeId: randomType.id,
         visits: 1,
-        lastVisitDate: today
+        lastVisitDate: today,
+        // 新規設置時は初回アクセス日時として今日の日付を設定
+        firstVisitDate: today
       };
 
       setObjects(prev => [...prev, newObj]);
@@ -206,6 +220,7 @@ export default function GeoCollectorGame() {
   // Watch position
   useEffect(() => {
     if (!('geolocation' in navigator)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       showToast("お使いのブラウザは位置情報に対応していません");
       return;
     }
@@ -229,7 +244,9 @@ export default function GeoCollectorGame() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // Vehicle Mode Logic
+  // Vehicle Mode Logic (乗り物モードのロジック)
+  // 乗り物モードがオンの場合、10秒ごとに現在地をチェックし、
+  // 前回のアクション場所（ピン設置や訪問）から300m以上離れていれば自動で周囲を探索（ピン設置）する。
   useEffect(() => {
     if (!isVehicleMode) return;
 
@@ -241,11 +258,12 @@ export default function GeoCollectorGame() {
       if (lastPos) {
         const dist = getDistance(pos.lat, pos.lng, lastPos.lat, lastPos.lng);
         // 前回のアクション場所から SEARCH_RADIUS_M (300m) 以上離れていれば自動アクション
+        // これにより、移動中（乗り物乗車時など）に定期的にピンが刺される仕様が実現されている
         if (dist >= SEARCH_RADIUS_M) {
           performSearchAction(true);
         }
       } else {
-        // 初回は無条件で実行
+        // 初回（まだ一度もアクションが実行されていない場合）は無条件で実行
         performSearchAction(true);
       }
     }, 10000); // 10秒ごとにチェック
@@ -307,6 +325,8 @@ export default function GeoCollectorGame() {
                 <div className="text-3xl mb-1">{getObjectType(obj.typeId).icon}</div>
                 <div className="font-bold text-gray-800 text-base">{getObjectName(obj)}</div>
                 <div className="text-xs text-blue-600 font-bold mt-1">訪問回数: {obj.visits}回</div>
+                {/* 既存データで初回アクセス日時がない場合は最終訪問日時をフォールバックとして表示 */}
+                <div className="text-xs text-gray-500 mt-1">初回訪問: {obj.firstVisitDate || obj.lastVisitDate}</div>
                 <div className="text-xs text-gray-500 mt-1">最終訪問: {obj.lastVisitDate}</div>
               </div>
             </Popup>
