@@ -159,7 +159,38 @@ export function useJourneyData() {
 
       return { ...pass, days: updatedDays };
     }));
-  }
+  };
+
+  // 記録の順序を移動する関数
+  const moveRecord = (dayNumber: number, recordId: string, direction: 'up' | 'down') => {
+    if (!currentPassId) return;
+
+    setPasses(prev => prev.map(pass => {
+      if (pass.id !== currentPassId) return pass;
+
+      const updatedDays = pass.days.map(day => {
+        if (day.dayNumber === dayNumber) {
+          const index = day.records.findIndex(r => r.id === recordId);
+          if (index === -1) return day;
+
+          if (direction === 'up' && index > 0) {
+            const newRecords = [...day.records];
+            // Swap
+            [newRecords[index - 1], newRecords[index]] = [newRecords[index], newRecords[index - 1]];
+            return { ...day, records: newRecords };
+          } else if (direction === 'down' && index < day.records.length - 1) {
+             const newRecords = [...day.records];
+             // Swap
+             [newRecords[index], newRecords[index + 1]] = [newRecords[index + 1], newRecords[index]];
+             return { ...day, records: newRecords };
+          }
+        }
+        return day;
+      });
+
+      return { ...pass, days: updatedDays };
+    }));
+  };
 
   return {
     passes,
@@ -173,5 +204,6 @@ export function useJourneyData() {
     addRecord,
     updateRecord,
     deleteRecord,
+    moveRecord,
   };
 }

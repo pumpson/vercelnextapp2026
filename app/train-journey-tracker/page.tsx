@@ -17,6 +17,7 @@ export default function TrainJourneyTracker() {
     addRecord,
     updateRecord,
     deleteRecord,
+    moveRecord,
   } = useJourneyData();
 
   const [activeDayNumber, setActiveDayNumber] = useState<number>(1);
@@ -72,6 +73,12 @@ export default function TrainJourneyTracker() {
     if (editingRecordId) {
       updateRecord(activeDayNumber, editingRecordId, recordData);
       setEditingRecordId(null);
+      // 編集後もフォームをクリアする
+      setDepartureStation('');
+      setArrivalStation('');
+      setLineName('');
+      setFare('');
+      setMemo('');
     } else {
       addRecord(activeDayNumber, recordData);
       // 次の入力に備えて初期化。乗車駅は直前の降車駅をセット
@@ -102,6 +109,10 @@ export default function TrainJourneyTracker() {
     setMemo('');
   };
 
+  const handlePassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentPassId(e.target.value);
+    setActiveDayNumber(1); // パスを切り替えたら1日目に戻す
+  };
 
   if (!isLoaded) {
     return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">読み込み中...</div>;
@@ -124,7 +135,7 @@ export default function TrainJourneyTracker() {
             <select
               className="bg-gray-800 border border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-green-500"
               value={currentPassId || ''}
-              onChange={(e) => setCurrentPassId(e.target.value)}
+              onChange={handlePassChange}
             >
               {passes.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -226,7 +237,7 @@ export default function TrainJourneyTracker() {
         {/* 日程タブ */}
         {currentPass && (
           <div className="flex overflow-x-auto border-b border-gray-700 hide-scrollbar">
-            {currentPass.days.map(day => (
+            {currentPass.days.slice(0, currentPass.totalDays).map(day => (
               <button
                 key={day.dayNumber}
                 onClick={() => setActiveDayNumber(day.dayNumber)}
@@ -368,7 +379,7 @@ export default function TrainJourneyTracker() {
               </div>
             ) : (
               <div className="relative border-l-2 border-gray-700 ml-4 space-y-6 pb-4">
-                {currentDayRecords.map((record) => (
+                {currentDayRecords.map((record, index) => (
                   <div key={record.id} className="relative pl-6 group">
                     {/* タイムラインのドット */}
                     <div className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-gray-900 border-2 border-green-500"></div>
@@ -398,21 +409,43 @@ export default function TrainJourneyTracker() {
                           <div className="text-xl font-bold text-green-400">
                             ¥{record.fare.toLocaleString()}
                           </div>
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() => handleEditClick(record)}
-                              className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 bg-blue-400/10 rounded"
-                            >
-                              編集
-                            </button>
-                            <button
-                              onClick={() => {
-                                if(confirm('この記録を削除しますか？')) deleteRecord(activeDayNumber, record.id);
-                              }}
-                              className="text-xs text-red-400 hover:text-red-300 px-2 py-1 bg-red-400/10 rounded"
-                            >
-                              削除
-                            </button>
+                          <div className="flex flex-col items-end gap-2 mt-2">
+                            <div className="flex gap-2">
+                              {index > 0 && (
+                                <button
+                                  onClick={() => moveRecord(activeDayNumber, record.id, 'up')}
+                                  title="上へ移動"
+                                  className="text-xs text-gray-400 hover:text-white px-2 py-1 bg-gray-700 rounded"
+                                >
+                                  ↑
+                                </button>
+                              )}
+                              {index < currentDayRecords.length - 1 && (
+                                <button
+                                  onClick={() => moveRecord(activeDayNumber, record.id, 'down')}
+                                  title="下へ移動"
+                                  className="text-xs text-gray-400 hover:text-white px-2 py-1 bg-gray-700 rounded"
+                                >
+                                  ↓
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditClick(record)}
+                                className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 bg-blue-400/10 rounded"
+                              >
+                                編集
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if(confirm('この記録を削除しますか？')) deleteRecord(activeDayNumber, record.id);
+                                }}
+                                className="text-xs text-red-400 hover:text-red-300 px-2 py-1 bg-red-400/10 rounded"
+                              >
+                                削除
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
